@@ -231,7 +231,6 @@ def check_example(example_dir):
 
 
 def main() -> None:
-    expected_dirs = {f"{i:02d}-" for i in range(1, 17)}
     dirs = sorted(
         d for d in EXAMPLES_DIR.iterdir() if d.is_dir() and re.match(r"^\d\d-", d.name)
     )
