@@ -1,0 +1,15 @@
+[package]
+name = "smoke"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+prost = "0.13"
+rdkafka = { version = "0.37", features = ["cmake-build"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+
+[build-dependencies]
+prost-build = "0.13"
+protoc-bin-vendored = "3"
