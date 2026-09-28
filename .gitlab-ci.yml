@@ -1,0 +1,55 @@
+# Stage 1 CI. The oracle guard job is added in stage 2+ ; after that this file is protected.
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+stages:
+  - build
+  - test
+
+variables:
+  REDPANDA_IMAGE: redpandadata/redpanda:v25.3.17
+  REDPANDA_CMD: "redpanda start --smp 1 --overprovisioned --mode dev-container --kafka-addr PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr PLAINTEXT://redpanda:9092"
+  KAFKA_BROKER: redpanda:9092
+
+rust-smoke:
+  stage: test
+  image: rust:1.90.0-bookworm
+  services:
+    - name: $REDPANDA_IMAGE
+      alias: redpanda
+      command: ["redpanda", "start", "--smp", "1", "--overprovisioned", "--mode", "dev-container", "--kafka-addr", "PLAINTEXT://0.0.0.0:9092", "--advertise-kafka-addr", "PLAINTEXT://redpanda:9092"]
+  cache:
+    key: rust-smoke
+    paths:
+      - stream-rs/target
+      - .cargo/registry
+  script:
+    - apt-get update && apt-get install -y cmake build-essential
+    - cd stream-rs && cargo build --release -p smoke && cargo run --release -p smoke
+
+python-smoke:
+  stage: test
+  image: python:3.12-slim
+  services:
+    - name: $REDPANDA_IMAGE
+      alias: redpanda
+      command: ["redpanda", "start", "--smp", "1", "--overprovisioned", "--mode", "dev-container", "--kafka-addr", "PLAINTEXT://0.0.0.0:9092", "--advertise-kafka-addr", "PLAINTEXT://redpanda:9092"]
+  script:
+    - pip install -r generator/requirements.txt
+    - python -m grpc_tools.protoc -I proto --python_out=generator proto/smoke.proto
+    - python generator/smoke_send.py
+
+spark-hello:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - docker build -f docker/spark.Dockerfile -t lucid-spark-hello:stage1 .
+    - docker run --rm lucid-spark-hello:stage1 2>&1 | tee spark-hello.log
+    - grep TST00000000000003 spark-hello.log

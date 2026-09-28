@@ -1,0 +1,5 @@
+[workspace]
+resolver = "2"
+# crates/common and jobs/battery-health are README-only for now and join the
+# workspace in stage 5.
+members = ["smoke"]
