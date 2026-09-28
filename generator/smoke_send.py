@@ -23,7 +23,9 @@ def main() -> None:
     broker = os.environ.get("KAFKA_BROKER", "localhost:9092")
     producer = Producer({"bootstrap.servers": broker})
     producer.produce(TOPIC, key=msg.vin.encode(), value=data)
-    producer.flush(30)
+    remaining = producer.flush(30)
+    if remaining:
+        raise SystemExit(f"{remaining} message(s) not delivered to {broker}")
 
     print(f"produced {len(data)} bytes to {TOPIC} on {broker}")
     print(msg)

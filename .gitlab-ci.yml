@@ -11,7 +11,7 @@ stages:
 
 variables:
   REDPANDA_IMAGE: redpandadata/redpanda:v25.3.17
-  REDPANDA_CMD: "redpanda start --smp 1 --overprovisioned --mode dev-container --kafka-addr PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr PLAINTEXT://redpanda:9092"
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
   KAFKA_BROKER: redpanda:9092
 
 rust-smoke:
@@ -27,7 +27,7 @@ rust-smoke:
       - stream-rs/target
       - .cargo/registry
   script:
-    - apt-get update && apt-get install -y cmake build-essential
+    - apt-get update && apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
     - cd stream-rs && cargo build --release -p smoke && cargo run --release -p smoke
 
 python-smoke:
