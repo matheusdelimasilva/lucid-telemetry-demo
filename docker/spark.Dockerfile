@@ -10,7 +10,12 @@ RUN apt-get update \
 
 # Pinned protoc binary (libprotoc 25.5) for the smoke.desc descriptor set and
 # the proto3 optional check. PB.protocVersion in build.sbt is pinned to match.
-RUN curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -o /tmp/protoc.zip \
+RUN case "$(uname -m)" in \
+      x86_64) PROTOC_ARCH=x86_64 ;; \
+      aarch64|arm64) PROTOC_ARCH=aarch_64 ;; \
+      *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" -o /tmp/protoc.zip \
     && unzip -o /tmp/protoc.zip -d /usr/local \
     && rm /tmp/protoc.zip \
     && protoc --version
