@@ -51,5 +51,15 @@ spark-hello:
     DOCKER_TLS_CERTDIR: "/certs"
   script:
     - docker build -f docker/spark.Dockerfile -t lucid-spark-hello:stage1 .
-    - docker run --rm lucid-spark-hello:stage1 2>&1 | tee spark-hello.log
-    - grep TST00000000000003 spark-hello.log
+    - docker run --rm lucid-spark-hello:stage1 > spark-hello.log 2>&1 || (cat spark-hello.log && exit 1)
+    - cat spark-hello.log
+    - grep "DECODED vin=TST00000000000003" spark-hello.log
+
+proto-optional-check:
+  stage: build
+  image: debian:bookworm-slim
+  script:
+    - apt-get update && apt-get install -y curl unzip ca-certificates
+    - curl -fsSL https://github.com/protocolbuffers/protobuf/releases/download/v25.5/protoc-25.5-linux-x86_64.zip -o /tmp/protoc.zip
+    - unzip -o /tmp/protoc.zip -d /usr/local && protoc --version
+    - sh docker/check-proto-optional.sh

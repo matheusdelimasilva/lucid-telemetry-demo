@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -27,3 +27,6 @@ spark-image:
 
 spark-hello:
 	docker run --rm lucid-spark-hello:stage1
+
+proto-check:
+	docker run --rm --entrypoint sh lucid-spark-hello:stage1 /app/check-proto-optional.sh

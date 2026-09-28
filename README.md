@@ -33,7 +33,7 @@ make down         # stop and remove the broker
 | Scala | 2.12.18 |
 | Spark (`spark-sql`, `spark-protobuf` `_2.12`) | 3.5.9 |
 | sbt | 1.10.11 |
-| ScalaPB / sbt-protoc | 0.11.17 / 1.0.7 (protoc 3.25.5) |
+| ScalaPB / sbt-protoc / protoc | 0.11.17 / 1.0.7 / 25.5 (pinned release binary) |
 | Rust toolchain | stable 1.90.0 (`rust:1.90.0-bookworm` in CI) |
 | rdkafka / prost / prost-build / protoc-bin-vendored / tokio | 0.37.x / 0.13.x / 0.13.x / 3.x / 1.x |
 | Python (CI) | python:3.12-slim |
