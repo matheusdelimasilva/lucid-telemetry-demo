@@ -1,0 +1,3 @@
+{"arrival_seq":1,"batch":1,"message":{"event_id":"00000000-0000-4000-8000-000000000901","vin":"TST00000000000009","ts":1790034600000,"event":"PLUG_IN","energy_wh":0,"lat":37.4,"lon":-122.1,"charger_type":"dc_fast"}}
+{"arrival_seq":2,"batch":1,"message":{"event_id":"00000000-0000-4000-8000-000000000902","vin":"TST00000000000009","ts":1790035800000,"event":"UNPLUG","energy_wh":0}}
+{"advance_watermark_to":1790039400000,"batch":2}

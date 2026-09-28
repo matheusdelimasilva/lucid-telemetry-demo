@@ -1,4 +1,4 @@
-# Stage 1 CI. The oracle guard job is added in stage 2+ ; after that this file is protected.
+# Stage 2 CI. The oracle guard job is not added yet.
 
 workflow:
   rules:
@@ -39,7 +39,7 @@ python-smoke:
       command: ["redpanda", "start", "--smp", "1", "--overprovisioned", "--mode", "dev-container", "--kafka-addr", "PLAINTEXT://0.0.0.0:9092", "--advertise-kafka-addr", "PLAINTEXT://redpanda:9092"]
   script:
     - pip install -r generator/requirements.txt
-    - python -m grpc_tools.protoc -I proto --python_out=generator proto/smoke.proto
+    - python -m grpc_tools.protoc -I proto --python_out=generator proto/*.proto
     - python generator/smoke_send.py
 
 spark-hello:
@@ -54,6 +54,14 @@ spark-hello:
     - docker run --rm lucid-spark-hello:stage1 > spark-hello.log 2>&1 || (cat spark-hello.log && exit 1)
     - cat spark-hello.log
     - grep "DECODED vin=TST00000000000003" spark-hello.log
+
+examples-check:
+  stage: build
+  image: python:3.12-slim
+  script:
+    - pip install -r generator/requirements.txt
+    - python -m grpc_tools.protoc -I proto --python_out=generator proto/*.proto
+    - python parity/replay/check_examples.py
 
 proto-optional-check:
   stage: build

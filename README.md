@@ -10,17 +10,22 @@ synthetic — this is not Lucid's system and contains no real Lucid data.
 ## Stage status
 
 - [x] Stage 1 — environment check scaffold: folder layout, Redpanda via
-      docker-compose, one-message smoke tests for the Python, Rust, and
-      Spark/Scala protobuf paths, CI skeleton. No job logic yet.
+      docker-compose, CI skeleton.
+- [ ] Stage 2 — behavior contract (in progress): real `proto/` schemas,
+      `contracts/` per job, `parity/replay/FORMAT.md`, 16 acceptance examples
+      under `parity/examples/`, plus an `examples-check` CI job. Smoke paths
+      now round-trip one `vehicle.charging.v1.ChargingEvent`; still no job
+      logic.
 
 ## Quickstart
 
 ```sh
 make up           # start Redpanda (docker compose up -d --wait)
-make smoke-rust   # Rust: produce + consume one Smoke protobuf message
+make smoke-rust   # Rust: produce + consume one ChargingEvent
 make smoke-py     # Python: venv + protoc codegen + produce one message
 make spark-image  # build the pinned JDK17/Scala/Spark/sbt image (slow, once)
-make spark-hello  # Spark: decode one Smoke protobuf message via from_protobuf
+make spark-hello  # Spark: decode one ChargingEvent via from_protobuf
+make check-examples  # validate parity/examples against FORMAT.md
 make down         # stop and remove the broker
 ```
 

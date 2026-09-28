@@ -1,0 +1,30 @@
+// Input topic `vehicle.charging.v1`, keyed by VIN. See contracts/charging-sessions.md.
+syntax = "proto3";
+
+package vehicle.charging.v1;
+
+enum ChargingEventType {
+  EVENT_UNSPECIFIED = 0;  // Protobuf default; fails validation
+  PLUG_IN = 1;
+  START = 2;
+  PROGRESS = 3;
+  STOP = 4;
+  UNPLUG = 5;
+}
+
+message ChargingEvent {
+  // Globally unique; retransmissions reuse the same ID. Canonical lowercase UUID text.
+  string event_id = 1;
+  // Synthetic vehicle ID and the Kafka message key. 17 chars from [A-Z0-9].
+  string vin = 2;
+  // Event time: epoch milliseconds, UTC.
+  int64 ts = 3;
+  ChargingEventType event = 4;
+  // Watt-hours delivered since the previous energy report, not a running total.
+  // Nonzero only on PROGRESS and STOP.
+  int64 energy_wh = 5;
+  // Required on PLUG_IN, optional and ignored on other events.
+  optional double lat = 6;
+  optional double lon = 7;
+  optional string charger_type = 8;
+}

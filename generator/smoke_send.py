@@ -1,4 +1,4 @@
-"""Stage-1 smoke check: build one Smoke message and produce it to smoke.v1.
+"""Smoke check: build one ChargingEvent and produce it to vehicle.charging.v1.
 
 Replaced in stage 3 by the seeded synthetic-event generator.
 """
@@ -7,16 +7,21 @@ import os
 
 from confluent_kafka import Producer
 
-import smoke_pb2
+import vehicle_charging_v1_pb2
 
-TOPIC = "smoke.v1"
+TOPIC = "vehicle.charging.v1"
 
 
 def main() -> None:
-    msg = smoke_pb2.Smoke(
+    msg = vehicle_charging_v1_pb2.ChargingEvent(
+        event_id="00000000-0000-4000-8000-000000000001",
         vin="TST00000000000001",
         ts=1790000100000,
-        note="stage1 smoke from python",
+        event=vehicle_charging_v1_pb2.PLUG_IN,
+        energy_wh=0,
+        lat=37.4,
+        lon=-122.1,
+        charger_type="dc_fast",
     )
     data = msg.SerializeToString()
 

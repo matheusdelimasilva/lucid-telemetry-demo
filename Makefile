@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -13,14 +13,20 @@ smoke-rust:
 	cd stream-rs && cargo run --release -p smoke
 
 proto-py:
-	python -m grpc_tools.protoc -I proto --python_out=generator proto/smoke.proto
+	python -m grpc_tools.protoc -I proto --python_out=generator proto/*.proto
 
-smoke-py:
+$(VENV):
 	python3 -m venv $(VENV)
 	$(PY) -m pip install --upgrade pip
 	$(PY) -m pip install -r generator/requirements.txt
-	$(PY) -m grpc_tools.protoc -I proto --python_out=generator proto/smoke.proto
+
+smoke-py: $(VENV)
+	$(PY) -m grpc_tools.protoc -I proto --python_out=generator proto/*.proto
 	$(PY) generator/smoke_send.py
+
+check-examples: $(VENV)
+	$(PY) -m grpc_tools.protoc -I proto --python_out=generator proto/*.proto
+	$(PY) parity/replay/check_examples.py
 
 spark-image:
 	docker build -f docker/spark.Dockerfile -t lucid-spark-hello:stage1 .
