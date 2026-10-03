@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples rust-replay rust-spark-trace
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -50,3 +50,9 @@ spark-examples: spark-image
 	docker cp lucid-spark-examples:/out $(SPARK_EXAMPLES_OUT) || true; \
 	docker rm -f lucid-spark-examples >/dev/null 2>&1 || true; \
 	exit $$status
+
+rust-replay:
+	cd stream-rs && cargo test -p common
+
+rust-spark-trace: spark-examples
+	cd stream-rs && SPARK_EXAMPLES_DIR=$(CURDIR)/build/spark-examples cargo test -p common -- --ignored spark
