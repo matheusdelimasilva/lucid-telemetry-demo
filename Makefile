@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures rust-replay rust-spark-trace
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures rust-replay rust-spark-trace rust-parity oracle-guard
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -111,3 +111,12 @@ rust-replay:
 
 rust-spark-trace: spark-examples
 	cd stream-rs && SPARK_EXAMPLES_DIR=$(CURDIR)/build/spark-examples cargo test -p common -- --ignored spark
+
+# What the rust-parity CI job runs (auto-discovers stream-rs/jobs/*).
+rust-parity:
+	sh ci/rust_parity.sh
+
+# What the oracle-guard CI job runs, against the local main. CI runs the target
+# branch's copy of the script, not the checkout's.
+oracle-guard:
+	sh ci/oracle_guard.sh origin/main HEAD

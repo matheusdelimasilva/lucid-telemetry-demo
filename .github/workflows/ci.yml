@@ -18,6 +18,39 @@ env:
   KAFKA_BROKER: localhost:9092
 
 jobs:
+  # ---- guard ---------------------------------------------------------------
+  # Runs the TARGET branch's copy of ci/oracle_guard.sh against the PR diff, so
+  # a PR can't edit the guard to let itself through. If the target has no
+  # script yet, the job passes only for the PR that adds it (bootstrap; that
+  # one PR is unguarded) and fails otherwise.
+  oracle-guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Run the target branch's ci/oracle_guard.sh
+        env:
+          TARGET: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$TARGET"
+          if git cat-file -e "origin/$TARGET:ci/oracle_guard.sh" 2>/dev/null; then
+            git show "origin/$TARGET:ci/oracle_guard.sh" > "$RUNNER_TEMP/oracle_guard.sh"
+            echo "running origin/$TARGET:ci/oracle_guard.sh ($(git rev-parse --short "origin/$TARGET"))"
+            sh "$RUNNER_TEMP/oracle_guard.sh" "origin/$TARGET" HEAD
+          else
+            base=$(git merge-base "origin/$TARGET" HEAD)
+            if ! git cat-file -e "$base:ci/oracle_guard.sh" 2>/dev/null \
+                && git cat-file -e "HEAD:ci/oracle_guard.sh" 2>/dev/null; then
+              echo "::warning::origin/$TARGET has no ci/oracle_guard.sh and this PR adds it: bootstrap, this PR is not guarded"
+            else
+              echo "::error::origin/$TARGET has no ci/oracle_guard.sh and this PR does not add it"
+              exit 1
+            fi
+          fi
+
   # ---- build stage ---------------------------------------------------------
   spark-hello:
     runs-on: ubuntu-latest
@@ -135,6 +168,30 @@ jobs:
           if-no-files-found: error
 
   # ---- verify stage --------------------------------------------------------
+  # Auto-discovers stream-rs/jobs/*/Cargo.toml (ci/rust_parity.sh); stages 5-6
+  # add a job directory and never edit CI. With no jobs it passes and says so.
+  rust-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tools/requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
+      - run: cd stream-rs && rustup toolchain install && rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stream-rs
+          shared-key: rust-parity
+      - run: sh ci/rust_parity.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-parity
+          path: build/rust-parity
+          if-no-files-found: ignore
+
   parity:
     needs: [baseline-repro]
     if: always()

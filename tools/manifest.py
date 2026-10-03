@@ -1,9 +1,15 @@
-"""baseline/manifest.json computation (stage 4a).
+"""baseline/manifest.json computation (stage 4a; split in 4b).
 
 `manifest.py compute --run <dir>` prints the manifest;
 `manifest.py write --run <dir>` writes baseline/manifest.json
-(indent 2, sorted keys, trailing newline). `compute(run_dir)` is reused by
-tools/parity.py for the frozen-baseline check.
+(indent 2, sorted keys, trailing newline).
+
+The manifest has two halves. `compute_repo()` hashes what is pinned in the
+repo (legacy-spark/ tree, proto/, fixtures, generator run, Dockerfile) and is
+what tools/parity.py verifies against the committed manifest. `compute_run()`
+reads the Spark replay settings out of a baseline run's `<job>.run.json`
+(Spark/Scala/Java versions, Spark conf, watermark delays) and is only used
+when the baseline is written. `compute()` is both, merged.
 """
 
 import argparse
@@ -59,7 +65,34 @@ def proto_sha256() -> str:
     return sha256_bytes(text.encode("utf-8"))
 
 
-def compute(run_dir) -> dict:
+def compute_repo() -> dict:
+    """Everything the manifest pins that lives in the repo, not in a run."""
+    gen = json.loads(GENERATOR_RUN.read_text(encoding="utf-8"))
+    jobs = list(gen["fixtures"])
+    return {
+        "legacy_spark_tree": legacy_spark_tree(),
+        "proto_sha256": proto_sha256(),
+        "fixtures": {
+            job: {
+                "path": f"parity/replay/{job}.jsonl",
+                "sha256": sha256_file(REPO / "parity" / "replay" / f"{job}.jsonl"),
+            } for job in jobs
+        },
+        "generator": {
+            "seed": gen["seed"],
+            "python_version": gen["python_version"],
+            "protobuf_version": gen["protobuf_version"],
+            "image": GENERATOR_IMAGE,
+        },
+        "replay": {
+            "dockerfile": DOCKERFILE,
+            "dockerfile_sha256": sha256_file(REPO / DOCKERFILE),
+        },
+    }
+
+
+def compute_run(run_dir) -> dict:
+    """The Spark replay settings of a baseline run (every job's run.json must agree)."""
     run_dir = Path(run_dir)
     gen = json.loads(GENERATOR_RUN.read_text(encoding="utf-8"))
     jobs = list(gen["fixtures"])
@@ -83,23 +116,7 @@ def compute(run_dir) -> dict:
         sys.exit(f"run.json spark_conf missing keys: {missing}")
 
     return {
-        "legacy_spark_tree": legacy_spark_tree(),
-        "proto_sha256": proto_sha256(),
-        "fixtures": {
-            job: {
-                "path": f"parity/replay/{job}.jsonl",
-                "sha256": sha256_file(REPO / "parity" / "replay" / f"{job}.jsonl"),
-            } for job in jobs
-        },
-        "generator": {
-            "seed": gen["seed"],
-            "python_version": gen["python_version"],
-            "protobuf_version": gen["protobuf_version"],
-            "image": GENERATOR_IMAGE,
-        },
         "replay": {
-            "dockerfile": DOCKERFILE,
-            "dockerfile_sha256": sha256_file(REPO / DOCKERFILE),
             "spark_version": env["spark_version"],
             "scala_version": env["scala_version"],
             "java_version": env["java_version"],
@@ -107,6 +124,12 @@ def compute(run_dir) -> dict:
             "watermark_delay_ms": {job: runs[job]["watermark_delay_ms"] for job in jobs},
         },
     }
+
+
+def compute(run_dir) -> dict:
+    manifest = compute_repo()
+    manifest["replay"].update(compute_run(run_dir)["replay"])
+    return manifest
 
 
 def main() -> None:
