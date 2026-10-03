@@ -55,3 +55,5 @@ if [ "$count" -gt 0 ]; then
   exit 1
 fi
 echo "PASS: 0 protected files touched (of $total changed)"
+
+# throwaway: guard demo, edits the guard itself
