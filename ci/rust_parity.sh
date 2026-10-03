@@ -6,8 +6,13 @@
 #   3. tools/suite_check.py grades the examples/probes output independently
 #      (the binary's own PASS/FAIL lines are informational)
 #   4. tools/parity.py and tools/privacy_check.py on the fixture run
-# The CLI contract a job binary must follow is in stream-rs/jobs/README.md.
-# Stages 5-6 add a job directory; this script and the CI config stay untouched.
+#   5. the crate's own tests: `cargo test -p <job>` and then the #[ignore]d
+#      ones (`-- --ignored`, Kafka integration tests; KAFKA_BROKER must point
+#      at a running Redpanda, see `make up`)
+#   6. `docker build -f deploy/<job>.Dockerfile .` when that file exists
+# Any failure fails the job. The CLI contract a job binary must follow is in
+# stream-rs/jobs/README.md. Stages 5-6 add a job directory; this script and the
+# CI config stay untouched.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -55,6 +60,20 @@ for job in "$@"; do
 
   echo "== $job: privacy-check"
   "$PYTHON" tools/privacy_check.py --job "$job" --run "$OUT" || status=1
+
+  echo "== $job: cargo test -p $job"
+  cargo test --manifest-path stream-rs/Cargo.toml $CARGO_FLAGS -p "$job" || status=1
+
+  echo "== $job: cargo test -p $job -- --ignored (KAFKA_BROKER=${KAFKA_BROKER:-unset})"
+  cargo test --manifest-path stream-rs/Cargo.toml $CARGO_FLAGS -p "$job" -- --ignored --nocapture || status=1
+
+  dockerfile="deploy/$job.Dockerfile"
+  if [ -f "$dockerfile" ]; then
+    echo "== $job: docker build -f $dockerfile ."
+    docker build -f "$dockerfile" -t "lucid-$job:dev" . || status=1
+  else
+    echo "== $job: no $dockerfile; docker build skipped"
+  fi
 done
 
 exit $status
