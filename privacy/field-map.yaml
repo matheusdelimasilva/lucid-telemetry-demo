@@ -1,0 +1,52 @@
+# HUMAN REVIEW REQUIRED: privacy policy, changes need privacy-reviewer
+# approval; drafted in stage 4a, not yet reviewed.
+#
+# charging-sessions: the "Reviewed field map" table from SPEC.md, verbatim,
+# plus machine-checkable assertions for the location outputs.
+# battery-health: SPEC.md gives no field map and it has no location outputs;
+# `map` and `assertions` are intentionally empty.
+review:
+  status: pending-human-review
+  reviewer: null
+charging-sessions:
+  map:
+    - input: vin
+      transformation: Copied
+      output: vin
+    - input: lat of the opening plug_in
+      transformation: Rounded to 3 decimals, exact halves away from zero
+      output: start_lat
+    - input: lon of the opening plug_in
+      transformation: Rounded to 3 decimals, exact halves away from zero
+      output: start_lon
+    - input: lat/lon of every other event
+      transformation: Ignored; never emitted or logged
+      output: "—"
+    - input: ts
+      transformation: Session boundaries
+      output: start_ts, end_ts, duration_ms
+    - input: energy_wh
+      transformation: Summed
+      output: total_energy_wh
+    - input: charger_type of the opening plug_in
+      transformation: Copied
+      output: charger_type
+    - input: event sequence
+      transformation: Rules in the contract
+      output: close_reason
+  assertions:
+    - output: start_lat
+      source_event: PLUG_IN
+      source_field: lat
+      of: opening_plug_in
+      rule: round3_half_away_from_zero
+      output_id: sha256_of_event_id
+    - output: start_lon
+      source_event: PLUG_IN
+      source_field: lon
+      of: opening_plug_in
+      rule: round3_half_away_from_zero
+      output_id: sha256_of_event_id
+battery-health:
+  map: []
+  assertions: []

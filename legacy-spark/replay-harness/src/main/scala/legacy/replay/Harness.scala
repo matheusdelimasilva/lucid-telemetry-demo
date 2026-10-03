@@ -2,6 +2,7 @@ package legacy.replay
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
@@ -45,13 +46,20 @@ object Harness {
     var descriptor = "/app/telemetry.desc"
     var out = "build/spark-examples"
     val suites = mutable.ArrayBuffer[String]()
+    val fixtures = mutable.ArrayBuffer[(String, String)]()
     val it = args.iterator
     while (it.hasNext) it.next() match {
       case "--descriptor" => descriptor = it.next()
       case "--out" => out = it.next()
+      case "--fixture" =>
+        val spec = it.next().split("=", 2)
+        require(spec.length == 2 && Jobs.contains(spec(0)),
+          "--fixture must be <job>=<path> with job in " + Jobs.keys.mkString(","))
+        fixtures += spec(0) -> spec(1)
       case s => suites += s
     }
-    require(suites.nonEmpty, "usage: Harness --descriptor <desc> --out <dir> <suite-dir>...")
+    require(suites.nonEmpty || fixtures.nonEmpty,
+      "usage: Harness --descriptor <desc> --out <dir> [--fixture <job>=<path>]... <suite-dir>...")
 
     val spark = LegacyJob.session("replay-harness")
     if (spark.conf.get("spark.sql.streaming.noDataMicroBatches.enabled", "true") != "true") {
@@ -72,6 +80,15 @@ object Harness {
       val why = result.get("failures").elements().asScala.map(_.asText()).mkString("; ")
       println(s"$status $caseId${if (why.nonEmpty) " -- " + why else ""}")
     }
+
+    var fixtureFailed = 0
+    for ((jobName, path) <- fixtures) {
+      val start = System.nanoTime()
+      val status = runFixture(spark, descriptor, messages, jobName, Paths.get(path), outDir)
+      val elapsed = (System.nanoTime() - start) / 1e9
+      println(f"$status fixture $jobName ($elapsed%.1f s)")
+      if (status != "PASS") fixtureFailed += 1
+    }
     spark.stop()
 
     val sumNode = mapper.createArrayNode()
@@ -79,7 +96,7 @@ object Harness {
     write(outDir.resolve("summary.json"), pretty(sumNode))
     val failed = summary.count(_.get("status").asText() != "PASS")
     println(s"${summary.size - failed}/${summary.size} cases passed")
-    if (failed > 0) sys.exit(1)
+    if (failed > 0 || fixtureFailed > 0) sys.exit(1)
   }
 
   def caseDirs(suite: Path): Seq[Path] =
@@ -87,14 +104,24 @@ object Harness {
       .filter(p => Files.isDirectory(p) && p.getFileName.toString.matches("""\d\d-.*"""))
       .toSeq.sortBy(_.getFileName.toString)
 
-  def runCase(spark: SparkSession, descriptor: String, messages: Map[String, Descriptors.Descriptor],
-              caseDir: Path, out: Path): ObjectNode = {
+  /** Everything one replay produces, before any expected.json comparison. Shared by
+    * suite mode (which then compares and writes per-case files) and whole-job fixture
+    * mode (which writes <job>.* files under --out instead).
+    */
+  case class ReplayOutcome(
+      job: LegacyJob,
+      records: Seq[JsonNode],
+      counters: JsonNode,
+      trace: Seq[ObjectNode],
+      drain: ObjectNode,
+      failures: Seq[String],
+      drainFailures: Seq[String])
+
+  def runReplay(spark: SparkSession, descriptor: String, messages: Map[String, Descriptors.Descriptor],
+                job: LegacyJob, fixture: Fixture): ReplayOutcome = {
     import spark.implicits._
     implicit val sqlCtx = spark.sqlContext
 
-    val expected = mapper.readTree(caseDir.resolve("expected.json").toFile)
-    val job = Jobs(expected.get("job").asText())
-    val fixture = readFixture(caseDir.resolve("input.jsonl"))
     val inDesc = messages(job.inputMessage)
     val failures = mutable.ArrayBuffer[String]()
 
@@ -242,16 +269,29 @@ object Harness {
     }
     val dfs = drain.putArray("failures")
     drainFailures.foreach(f => dfs.add(f))
+    if (drainFailures.nonEmpty)
+      failures += s"drain check failed (${drainFailures.mkString("; ")}); parity refuses to compare"
+
+    ReplayOutcome(job, records, counters, trace.toSeq, drain, failures.toSeq, drainFailures.toSeq)
+  }
+
+  def runCase(spark: SparkSession, descriptor: String, messages: Map[String, Descriptors.Descriptor],
+              caseDir: Path, out: Path): ObjectNode = {
+    val expected = mapper.readTree(caseDir.resolve("expected.json").toFile)
+    val job = Jobs(expected.get("job").asText())
+    val fixture = readFixture(caseDir.resolve("input.jsonl"))
+    val outcome = runReplay(spark, descriptor, messages, job, fixture)
+    val failures = mutable.ArrayBuffer[String]()
+    failures ++= outcome.failures
 
     // Compare, unless the drain check failed.
-    val refused = drainFailures.nonEmpty
-    if (refused) failures += s"drain check failed (${drainFailures.mkString("; ")}); parity refuses to compare"
-    else {
-      failures ++= compareRecords(expected.get("records"), records)
-      if (expected.get("counters") != counters)
-        failures += s"counters: expected ${expected.get("counters")} got $counters"
+    val refused = outcome.drainFailures.nonEmpty
+    if (!refused) {
+      failures ++= compareRecords(expected.get("records"), outcome.records)
+      if (expected.get("counters") != outcome.counters)
+        failures += s"counters: expected ${expected.get("counters")} got ${outcome.counters}"
       Option(expected.get("watermarks")).foreach(_.fields().asScala.foreach { e =>
-        val got = trace.find(_.get("batch").asInt() == e.getKey.toInt).map(_.get("watermark_after").asLong())
+        val got = outcome.trace.find(_.get("batch").asInt() == e.getKey.toInt).map(_.get("watermark_after").asLong())
         if (!got.contains(e.getValue.asLong()))
           failures += s"watermark after batch ${e.getKey}: expected ${e.getValue} got ${got.getOrElse("none")}"
       })
@@ -260,21 +300,74 @@ object Harness {
     val outputs = mapper.createObjectNode()
     outputs.put("job", job.name)
     val recs = outputs.putArray("records")
-    records.sortBy(_.get("output_id").asText()).foreach(r => recs.add(r))
-    outputs.set[JsonNode]("counters", counters)
+    outcome.records.sortBy(_.get("output_id").asText()).foreach(r => recs.add(r))
+    outputs.set[JsonNode]("counters", outcome.counters)
     write(out.resolve("outputs.json"), pretty(outputs))
-    write(out.resolve("trace.jsonl"), trace.map(n => mapper.writeValueAsString(n)).mkString("", "\n", "\n"))
-    write(out.resolve("drain.json"), pretty(drain))
+    write(out.resolve("trace.jsonl"), traceText(outcome.trace))
+    write(out.resolve("drain.json"), pretty(outcome.drain))
 
     val result = mapper.createObjectNode()
     result.put("status", if (refused) "REFUSED" else if (failures.isEmpty) "PASS" else "FAIL")
     result.put("job", job.name)
-    result.set[JsonNode]("drain", drain)
+    result.set[JsonNode]("drain", outcome.drain)
     val fs = result.putArray("failures")
     failures.foreach(f => fs.add(f))
     write(out.resolve("result.json"), pretty(result))
     result
   }
+
+  /** Whole-job fixture mode: replay <path> for <jobName> and write <job>.records.jsonl,
+    * <job>.counters.json, <job>.trace.jsonl, <job>.drain.json, <job>.result.json and
+    * <job>.run.json under `out`. No expected.json comparison; the result is PASS iff
+    * the harness's own checks (flush target, late counts, reserved VIN, drain) hold.
+    */
+  def runFixture(spark: SparkSession, descriptor: String, messages: Map[String, Descriptors.Descriptor],
+                 jobName: String, fixturePath: Path, out: Path): String = {
+    val job = Jobs(jobName)
+    val fixture = readFixture(fixturePath)
+    val outcome = runReplay(spark, descriptor, messages, job, fixture)
+    val status = if (outcome.failures.isEmpty) "PASS" else "FAIL"
+
+    val recordsText = outcome.records.sortBy(_.get("output_id").asText())
+      .map(r => mapper.writeValueAsString(r)).mkString("", "\n", "\n")
+    write(out.resolve(s"${job.name}.records.jsonl"), recordsText)
+    write(out.resolve(s"${job.name}.counters.json"), pretty(outcome.counters))
+    write(out.resolve(s"${job.name}.trace.jsonl"), traceText(outcome.trace))
+    write(out.resolve(s"${job.name}.drain.json"), pretty(outcome.drain))
+
+    val result = mapper.createObjectNode()
+    result.put("job", job.name)
+    result.put("status", status)
+    val fs = result.putArray("failures")
+    outcome.failures.foreach(f => fs.add(f))
+    write(out.resolve(s"${job.name}.result.json"), pretty(result))
+
+    val conf = mapper.createObjectNode()
+    Seq("spark.master", "spark.sql.shuffle.partitions", "spark.sql.session.timeZone",
+      "spark.sql.streaming.noDataMicroBatches.enabled")
+      .foreach(k => conf.put(k, spark.conf.get(k)))
+    val replay = mapper.createObjectNode()
+    replay.put("spark_version", spark.version)
+    replay.put("scala_version", scala.util.Properties.versionNumberString)
+    replay.put("java_version", System.getProperty("java.version"))
+    replay.set[JsonNode]("spark_conf", conf)
+    val run = mapper.createObjectNode()
+    run.put("job", job.name)
+    run.put("implementation", "spark-legacy")
+    run.put("fixture_sha256", sha256Hex(Files.readAllBytes(fixturePath)))
+    val topics = run.putArray("output_topics")
+    topics.add(job.outputTopic)
+    run.put("watermark_delay_ms", job.delayMs)
+    run.set[JsonNode]("replay", replay)
+    write(out.resolve(s"${job.name}.run.json"), pretty(run))
+    status
+  }
+
+  def traceText(trace: Seq[ObjectNode]): String =
+    trace.map(n => mapper.writeValueAsString(n)).mkString("", "\n", "\n")
+
+  def sha256Hex(bytes: Array[Byte]): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).map(b => f"${b & 0xff}%02x").mkString
 
   def compareRecords(expected: JsonNode, actual: Seq[JsonNode]): Seq[String] = {
     val problems = mutable.ArrayBuffer[String]()

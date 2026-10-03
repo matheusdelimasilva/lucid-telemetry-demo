@@ -1,0 +1,37 @@
+{
+  "fixtures": {
+    "battery-health": {
+      "path": "parity/replay/battery-health.jsonl",
+      "sha256": "601a69aa4f1c82d9428dff2f240ae08c2830239525fc3396e7394eadd52cac3d"
+    },
+    "charging-sessions": {
+      "path": "parity/replay/charging-sessions.jsonl",
+      "sha256": "4bdf29fa31a9582b49ca93e9008e202ee4dea9d51e55d123ecb7f77742b5db35"
+    }
+  },
+  "generator": {
+    "image": "python:3.12.11-slim",
+    "protobuf_version": "6.31.1",
+    "python_version": "3.12.11",
+    "seed": 20260922
+  },
+  "legacy_spark_tree": "ef96ffa1d704664564cd059d9343bb6a5ab69a55",
+  "proto_sha256": "9a35a4dae8745bf4848b68cb1de157f5e5af723bc6f9ecdebc4f90311d506436",
+  "replay": {
+    "dockerfile": "docker/spark.Dockerfile",
+    "dockerfile_sha256": "e66f45f43fb4c11989e1b0da4a044d2debc81e313b9e149e2f5fce0cdb697cc4",
+    "java_version": "17.0.15",
+    "scala_version": "2.12.18",
+    "spark_conf": {
+      "spark.master": "local[1]",
+      "spark.sql.session.timeZone": "UTC",
+      "spark.sql.shuffle.partitions": "1",
+      "spark.sql.streaming.noDataMicroBatches.enabled": "true"
+    },
+    "spark_version": "3.5.9",
+    "watermark_delay_ms": {
+      "battery-health": 120000,
+      "charging-sessions": 600000
+    }
+  }
+}

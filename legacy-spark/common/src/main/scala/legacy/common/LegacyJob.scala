@@ -24,6 +24,7 @@ trait LegacyJob {
   def name: String
   def inputMessage: String
   def outputMessage: String
+  def outputTopic: String
   def delayMs: Long
 
   /** Decoded input fields plus `arrival_seq`, `ts` and `valid: Boolean`. Shared by `logic`

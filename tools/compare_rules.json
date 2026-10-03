@@ -1,0 +1,10 @@
+{
+  "battery-health": {
+    "abs_tolerance": {
+      "avg_soc_pct": 1e-9
+    }
+  },
+  "charging-sessions": {
+    "abs_tolerance": {}
+  }
+}

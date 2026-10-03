@@ -1,0 +1,6 @@
+{
+  "rejected" : 20,
+  "late" : 35,
+  "duplicate_events" : 40,
+  "conflicting_duplicates" : 18
+}

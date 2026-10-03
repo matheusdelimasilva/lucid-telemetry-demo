@@ -8,6 +8,7 @@ workflow:
 stages:
   - build
   - test
+  - verify
 
 variables:
   REDPANDA_IMAGE: redpandadata/redpanda:v25.3.17
@@ -86,3 +87,58 @@ spark-examples:
     when: always
     paths:
       - build/spark-examples
+
+baseline-repro:
+  stage: test
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - apk add --no-cache make
+    - make baseline-repro
+  artifacts:
+    when: always
+    paths:
+      - build/spark-baseline
+
+parity:
+  stage: verify
+  image: python:3.12-slim
+  needs:
+    - job: baseline-repro
+      artifacts: true
+  when: always
+  script:
+    - apt-get update && apt-get install -y --no-install-recommends git make
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - pip install -r tools/requirements.txt
+    - status=0
+    - make parity JOB=charging-sessions RUN=build/spark-baseline || status=1
+    - make parity JOB=battery-health RUN=build/spark-baseline || status=1
+    - exit $status
+  artifacts:
+    when: always
+    paths:
+      - build/spark-baseline/*.parity.md
+
+privacy-check:
+  stage: verify
+  image: python:3.12-slim
+  needs:
+    - job: baseline-repro
+      artifacts: true
+  when: always
+  script:
+    - apt-get update && apt-get install -y --no-install-recommends git make
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - pip install -r tools/requirements.txt
+    - status=0
+    - make privacy-check JOB=charging-sessions RUN=build/spark-baseline || status=1
+    - make privacy-check JOB=battery-health RUN=build/spark-baseline || status=1
+    - exit $status
+  artifacts:
+    when: always
+    paths:
+      - build/spark-baseline/*.privacy.md

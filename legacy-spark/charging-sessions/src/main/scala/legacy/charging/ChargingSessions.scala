@@ -19,6 +19,7 @@ object ChargingSessions extends Job {
   override val name = "charging-sessions"
   override val inputMessage = "vehicle.charging.v1.ChargingEvent"
   override val outputMessage = "charging.sessions.v1.ChargingSession"
+  override val outputTopic = "charging.sessions.v1"
   override val delayMs = 600000L
 
   private val minTs = 1577836800000L
@@ -265,7 +266,7 @@ object ChargingSessions extends Job {
     val defaults = Map(
       "--brokers" -> "localhost:9092",
       "--input-topic" -> "vehicle.charging.v1",
-      "--output-topic" -> "charging.sessions.v1",
+      "--output-topic" -> outputTopic,
       "--checkpoint" -> "/tmp/charging-sessions-checkpoint",
       "--descriptor" -> "/app/telemetry.desc",
       "--counters-out" -> "/tmp/charging-sessions.counters.json")
