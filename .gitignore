@@ -1,4 +1,5 @@
 target/
+build/
 .bsp/
 project/target
 project/project

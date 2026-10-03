@@ -239,7 +239,10 @@ Setting Spark's watermark option isn't a full specification of the procedure abo
 - `parity/replay/<job>.jsonl` lists events in arrival order, each with its `arrival_seq` and batch number.
 - Spark replays it through a `MemoryStream`, calling `processAllAvailable()` after each batch. Rust's replay runner follows the same batches. Both write a trace: for each batch, the input events, the watermark in effect, and the records emitted.
 - **Flush.** Every fixture ends the same way. The target watermark T is the largest *valid* fixture `ts` plus 1 hour; rejected rows never count. Each job gets one control event on the reserved VIN `TSTZZZZZZZZZZZZZZ` with `ts` = T plus the job's delay: a `plug_in` for charging (T + 10 min), a valid reading for battery (T + 2 min). Then one empty batch, which in Spark is the no-data batch that runs when the watermark moves. That puts the watermark at exactly T. The reserved VIN is left out of outputs and counters.
-- **Drain condition**, checked rather than assumed: after the flush, the only state left is the reserved VIN's buffered event. Scala checks the stateful operator's state row count in the last progress (one key); Rust checks its state map. If the check fails, parity refuses to compare.
+- **Drain condition**, checked rather than assumed: after the flush, no VIN other than the reserved one has an open session (charging), an open window (battery), or buffered events. Seen IDs may remain; they're kept for the whole run.
+  - Scala: every state-function call emits a status marker `{vin, batch, busy}`, where `busy` means the VIN has an open session or window or buffered events. Every VIN's last marker must be `busy = false`, except the reserved VIN's, which must be `busy = true` (its control event is still buffered). Cross-check: the stateful operator's `numRowsTotal` in the last progress equals the number of distinct VINs that reached state (valid, non-late rows) plus one for the reserved VIN.
+  - Rust: inspect the state map directly with the same rule.
+  - If the check fails, parity refuses to compare.
 - One input partition, one worker. That's the boundary for this repo; parallelism is pilot scope.
  
 **Resolved questions** (stage 2 review; these are part of the contract)
@@ -313,7 +316,7 @@ The parity harness is the centerpiece, and it's built so a green result is hard 
 | Check | What it does | Passes when |
 | --- | --- | --- |
 | Frozen baseline | Reads `baseline/manifest.json`: legacy commit, fixture checksum, proto version, replay config | All four match the current run; otherwise parity refuses to run |
-| Drain condition | Checks that the flush closed everything (see the replay section) | Only the reserved VIN's state remains |
+| Drain condition | Checks that the flush closed everything (see the replay section) | No VIN but the reserved one has an open session, open window or buffered events |
 | Output integrity | Looks for repeated `output_id`s in each run before any comparison | None; a repeat fails right away instead of hiding in a map |
 | Record parity | Compares final records to the golden file by `output_id` | Same set of records; fields exact, except battery averages within 1e-9 absolute |
 | Behavioral counters | Compares `rejected`, `late`, `duplicate_events`, `conflicting_duplicates`, `orphan` and sessions by `close_reason` | Same counts as the Scala run |

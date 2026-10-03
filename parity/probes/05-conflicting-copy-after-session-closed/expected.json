@@ -1,0 +1,46 @@
+{
+  "job": "charging-sessions",
+  "records": [
+    {
+      "output_id": "9d9d9daa87dd9a5297881af569cf4ae81dd59c72f7bfffa08e351c829aa80b7d",
+      "vin": "TSTP0000000000005",
+      "start_ts": 1789984800000,
+      "end_ts": 1789985400000,
+      "duration_ms": 600000,
+      "total_energy_wh": 0,
+      "start_lat": 37.4,
+      "start_lon": -122.1,
+      "charger_type": "dc_fast",
+      "close_reason": "UNPLUG"
+    },
+    {
+      "output_id": "bc809c256633b1519b431e694f424742c96102b19d5ab76120ca7a98727f5972",
+      "vin": "TSTP000000000005B",
+      "start_ts": 1789986600000,
+      "end_ts": 1789986600000,
+      "duration_ms": 0,
+      "total_energy_wh": 0,
+      "start_lat": 37.4,
+      "start_lon": -122.1,
+      "charger_type": "dc_fast",
+      "close_reason": "INACTIVITY_TIMEOUT"
+    }
+  ],
+  "counters": {
+    "rejected": 0,
+    "late": 0,
+    "duplicate_events": 0,
+    "conflicting_duplicates": 1,
+    "orphan": 0,
+    "sessions_by_close_reason": {
+      "unplug": 1,
+      "inactivity_timeout": 1,
+      "replaced_by_plug_in": 0
+    }
+  },
+  "watermarks": {
+    "1": 1789984800000,
+    "2": 1789986000000,
+    "3": 1789986000000
+  }
+}

@@ -1,0 +1,5 @@
+{"arrival_seq":1,"batch":1,"message":{"event_id":"00000000-0000-4000-8000-000000990501","vin":"TSTP0000000000005","ts":1789984800000,"event":"PLUG_IN","energy_wh":0,"lat":37.4,"lon":-122.1,"charger_type":"dc_fast"}}
+{"arrival_seq":2,"batch":1,"message":{"event_id":"00000000-0000-4000-8000-000000990502","vin":"TSTP0000000000005","ts":1789985400000,"event":"UNPLUG","energy_wh":0}}
+{"arrival_seq":3,"batch":2,"message":{"event_id":"00000000-0000-4000-8000-000000990503","vin":"TSTP000000000005B","ts":1789986600000,"event":"PLUG_IN","energy_wh":0,"lat":37.4,"lon":-122.1,"charger_type":"dc_fast"}}
+{"arrival_seq":4,"batch":3,"message":{"event_id":"00000000-0000-4000-8000-000000990502","vin":"TSTP0000000000005","ts":1789986300000,"event":"UNPLUG","energy_wh":0}}
+{"advance_watermark_to":1789990200000,"batch":4}

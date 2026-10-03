@@ -21,6 +21,7 @@ import vehicle_battery_v1_pb2  # noqa: E402
 import vehicle_charging_v1_pb2  # noqa: E402
 
 EXAMPLES_DIR = REPO_ROOT / "parity" / "examples"
+PROBES_DIR = REPO_ROOT / "parity" / "probes"
 
 INPUT_TYPES = {
     "charging-sessions": vehicle_charging_v1_pb2.ChargingEvent,
@@ -245,6 +246,9 @@ def main() -> None:
         raise SystemExit(f"expected 16 example folders, got {len(dirs)}")
     for d in dirs:
         check_example(d)
+    if PROBES_DIR.is_dir():
+        for d in sorted(p for p in PROBES_DIR.iterdir() if p.is_dir() and re.match(r"^\d\d-", p.name)):
+            check_example(d)
 
 
 if __name__ == "__main__":

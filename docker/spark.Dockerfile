@@ -38,4 +38,13 @@ RUN protoc -I proto --descriptor_set_out=/app/telemetry.desc --include_imports p
 
 RUN sbt update compile
 
+COPY legacy-spark/build.sbt legacy-spark/.jvmopts /legacy-spark/
+COPY legacy-spark/project/ /legacy-spark/project/
+RUN cd /legacy-spark && sbt update
+
+COPY legacy-spark/ /legacy-spark/
+RUN cd /legacy-spark && sbt compile
+
+COPY parity/ /repo/parity/
+
 ENTRYPOINT ["sbt", "run"]
