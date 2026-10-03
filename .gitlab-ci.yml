@@ -47,10 +47,11 @@ rust-replay:
       - .cargo/registry
   script:
     - apt-get update && apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
-    - cd stream-rs && cargo fmt --check
-    - cd stream-rs && cargo clippy -p common --all-targets -- -D warnings
-    - cd stream-rs && cargo test -p common
-    - cd stream-rs && SPARK_EXAMPLES_DIR=$CI_PROJECT_DIR/build/spark-examples cargo test -p common -- --ignored
+    - cd stream-rs
+    - cargo fmt --check
+    - cargo clippy -p common --all-targets -- -D warnings
+    - cargo test -p common
+    - SPARK_EXAMPLES_DIR=$CI_PROJECT_DIR/build/spark-examples cargo test -p common -- --ignored
   artifacts:
     when: always
     paths:
