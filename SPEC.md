@@ -34,7 +34,9 @@ lucid-telemetry-demo/
   Makefile                 # make up, make baseline, make parity JOB=..., make privacy-check JOB=...
   docker-compose.yml       # Redpanda only
   docker/spark.Dockerfile  # pinned JDK, Scala, Spark 3.5.x and sbt
-  .gitlab-ci.yml           # includes the oracle guard
+  .github/workflows/ci.yml # live CI: oracle guard, rust-parity, parity, privacy-check
+  ci/                      # oracle_guard.sh (run from the target branch), rust_parity.sh
+  tools/                   # parity.py, privacy_check.py, manifest.py, compare_rules.json
   contracts/               # behavior contract per job (human-reviewed)
   proto/                   # .proto per topic: the one source of truth for schemas
   generator/               # Python synthetic events + replay schedules, seeded

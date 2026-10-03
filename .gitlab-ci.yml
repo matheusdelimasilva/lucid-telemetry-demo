@@ -1,4 +1,5 @@
-# Stage 2-3 CI. The oracle guard job is not added yet.
+# Ran through stage 3b on GitLab; not maintained after the move to GitHub Actions.
+# The live CI is .github/workflows/ci.yml.
 
 workflow:
   rules:
