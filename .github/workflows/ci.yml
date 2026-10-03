@@ -1,0 +1,122 @@
+# GitHub Actions port of .gitlab-ci.yml (kept for reference). Same jobs, same
+# commands, same artifact hand-offs. Differences: Redpanda comes from the repo's
+# docker-compose.yml (`make up`) instead of a CI service, and Docker jobs run on
+# the runner's Docker instead of dind. GitLab stage ordering (build -> test) is
+# preserved with `needs`.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  KAFKA_BROKER: localhost:9092
+
+jobs:
+  # ---- build stage ---------------------------------------------------------
+  spark-hello:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make spark-image
+      - run: docker run --rm lucid-spark-hello:dev > spark-hello.log 2>&1 || (cat spark-hello.log && exit 1)
+      - run: cat spark-hello.log
+      - run: grep "DECODED vin=TST00000000000003" spark-hello.log
+
+  examples-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r generator/requirements.txt
+      - run: python -m grpc_tools.protoc -I proto --python_out=generator proto/*.proto
+      - run: python parity/replay/check_examples.py
+
+  proto-optional-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL https://github.com/protocolbuffers/protobuf/releases/download/v25.5/protoc-25.5-linux-x86_64.zip -o /tmp/protoc.zip
+      - run: sudo unzip -o /tmp/protoc.zip -d /usr/local && protoc --version
+      - run: sh docker/check-proto-optional.sh
+
+  # ---- test stage ----------------------------------------------------------
+  rust-smoke:
+    needs: [spark-hello, examples-check, proto-optional-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
+      - run: cd stream-rs && rustup toolchain install && rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stream-rs
+          shared-key: rust-smoke
+      - run: make up
+      - run: cd stream-rs && cargo build --release -p smoke && cargo run --release -p smoke
+      - if: always()
+        run: make down
+
+  python-smoke:
+    needs: [spark-hello, examples-check, proto-optional-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r generator/requirements.txt
+      - run: python -m grpc_tools.protoc -I proto --python_out=generator proto/*.proto
+      - run: make up
+      - run: python generator/smoke_send.py
+      - if: always()
+        run: make down
+
+  spark-examples:
+    needs: [spark-hello, examples-check, proto-optional-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make spark-examples
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-examples
+          path: build/spark-examples
+          if-no-files-found: error
+
+  rust-replay:
+    needs: [spark-examples]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: spark-examples
+          path: build/spark-examples
+      - run: sudo apt-get update && sudo apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
+      - run: cd stream-rs && rustup toolchain install && rustup component add rustfmt clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stream-rs
+          shared-key: rust-replay
+      - run: make up
+      - run: cd stream-rs && cargo fmt --check
+      - run: cd stream-rs && cargo clippy -p common --all-targets -- -D warnings
+      - run: cd stream-rs && cargo test -p common
+      - run: cd stream-rs && SPARK_EXAMPLES_DIR=$GITHUB_WORKSPACE/build/spark-examples cargo test -p common -- --ignored --nocapture
+      - if: always()
+        run: make down
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-examples
+          path: build/rust-examples
+          if-no-files-found: warn
