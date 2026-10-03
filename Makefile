@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures rust-replay rust-spark-trace
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -105,3 +105,9 @@ fixtures:
 		pip install -q --disable-pip-version-check --target /tmp/deps -r generator/requirements.txt && \
 		mkdir -p /tmp/pb && PYTHONPATH=/tmp/deps python -m grpc_tools.protoc -I proto --python_out=/tmp/pb proto/*.proto && \
 		PYTHONPATH=/tmp/deps PB2_DIR=/tmp/pb python generator/generate.py --out $(FIXTURES_OUT)'
+
+rust-replay:
+	cd stream-rs && cargo test -p common
+
+rust-spark-trace: spark-examples
+	cd stream-rs && SPARK_EXAMPLES_DIR=$(CURDIR)/build/spark-examples cargo test -p common -- --ignored spark
