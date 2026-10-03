@@ -1,8 +1,13 @@
 """tools/parity.py --job J --run DIR [--report PATH, default DIR/J.parity.md]
 
 Compares one replay run directory against the frozen baseline: the manifest
-(tree, fixtures, proto, replay env), the drain check, the harness's own
-self-checks, and record/counter parity against parity/golden/.
+(the repo's legacy-spark/ tree, proto/, fixtures, generator run and Dockerfile
+must still hash to what baseline/manifest.json pins; the run must declare its
+engine and match the shared replay settings), the drain check, the harness's
+own self-checks, and record/counter parity against parity/golden/.
+
+The run directory holds `<job>.{run,drain,result}.json`, `<job>.records.jsonl`
+and `<job>.counters.json` in the Spark harness shapes (stream-rs/jobs/README.md).
 """
 
 import argparse
@@ -17,6 +22,10 @@ import manifest as manifest_mod  # noqa: E402
 
 RULES = json.loads((REPO / "tools" / "compare_rules.json").read_text(encoding="utf-8"))
 GOLDEN = REPO / "parity" / "golden"
+ENGINES = {"spark", "rust"}
+# Spark-only replay settings; checked when the run's engine is spark.
+SPARK_ENV_KEYS = ("spark_version", "scala_version", "java_version") + tuple(
+    f"spark_conf.{k}" for k in manifest_mod.SPARK_CONF_KEYS)
 
 
 def read_records(path):
@@ -33,6 +42,16 @@ def flatten(obj, prefix=""):
     else:
         out[prefix[:-1]] = obj
     return out
+
+
+def run_engine(run_meta):
+    """`engine` from run.json. The frozen legacy harness predates the field and
+    writes `implementation: spark-legacy`, which counts as spark."""
+    if "engine" in run_meta:
+        return run_meta["engine"]
+    if run_meta.get("implementation") == "spark-legacy":
+        return "spark"
+    return None
 
 
 def dup_ids(records):
@@ -99,24 +118,50 @@ def main() -> None:
              "output integrity", "record parity", "counters"]
     ok = True
 
-    # 1. Frozen baseline.
+    # 1. Frozen baseline. (a) The repo still hashes to the committed manifest;
+    # (b) the run declares its engine and matches the shared replay settings;
+    # (c) a Spark run must also match the pinned Spark environment.
     expected = json.loads((REPO / "baseline" / "manifest.json").read_text(encoding="utf-8"))
-    got = manifest_mod.compute(run_dir)
+    repo_now = flatten(manifest_mod.compute_repo())
     diffs = []
-    for key in sorted(set(flatten(expected)) | set(flatten(got))):
-        e, g = flatten(expected).get(key), flatten(got).get(key)
+    for key in sorted(repo_now):
+        e, g = flatten(expected).get(key), repo_now[key]
         if e != g:
-            diffs.append(f"{key}: expected {e} vs got {g}")
-    run_meta = json.loads((run_dir / f"{job}.run.json").read_text(encoding="utf-8"))
-    if run_meta["fixture_sha256"] != expected["fixtures"][job]["sha256"]:
-        diffs.append(f"run.json fixture_sha256: expected "
-                     f"{expected['fixtures'][job]['sha256']} vs got {run_meta['fixture_sha256']}")
+            diffs.append(f"{key}: manifest {e} vs repo {g}")
     if diffs:
-        emit("REFUSED", NAMES[0], f"{len(diffs)} manifest mismatches", diffs)
+        emit("REFUSED", NAMES[0], f"repo no longer matches baseline/manifest.json: "
+             f"{len(diffs)} mismatches (re-run make baseline)", diffs)
         not_run(NAMES[1:])
         finish(lines, report, 1)
         return
-    emit("PASS", NAMES[0], "manifest identical, fixture_sha256 matches")
+
+    run_meta = json.loads((run_dir / f"{job}.run.json").read_text(encoding="utf-8"))
+    engine = run_engine(run_meta)
+    if engine not in ENGINES:
+        diffs.append(f"run.json engine: expected one of {sorted(ENGINES)} vs got {engine!r}")
+    if run_meta.get("job") != job:
+        diffs.append(f"run.json job: expected {job!r} vs got {run_meta.get('job')!r}")
+    if run_meta.get("fixture_sha256") != expected["fixtures"][job]["sha256"]:
+        diffs.append(f"run.json fixture_sha256: expected "
+                     f"{expected['fixtures'][job]['sha256']} vs got {run_meta.get('fixture_sha256')}")
+    if run_meta.get("watermark_delay_ms") != expected["replay"]["watermark_delay_ms"][job]:
+        diffs.append(f"run.json watermark_delay_ms: expected "
+                     f"{expected['replay']['watermark_delay_ms'][job]} vs got "
+                     f"{run_meta.get('watermark_delay_ms')}")
+    if engine == "spark":
+        env = flatten(run_meta.get("replay") or {})
+        for key in SPARK_ENV_KEYS:
+            e, g = flatten(expected["replay"]).get(key), env.get(key)
+            if e != g:
+                diffs.append(f"run.json replay.{key}: expected {e} vs got {g}")
+    if diffs:
+        emit("REFUSED", NAMES[0], f"run does not match the baseline: {len(diffs)} mismatches", diffs)
+        not_run(NAMES[1:])
+        finish(lines, report, 1)
+        return
+    emit("PASS", NAMES[0], f"repo matches manifest; engine={engine}, fixture_sha256 and "
+                           f"watermark_delay_ms match"
+                           + ("; Spark environment matches" if engine == "spark" else ""))
 
     # 2. Drain.
     drain = json.loads((run_dir / f"{job}.drain.json").read_text(encoding="utf-8"))
