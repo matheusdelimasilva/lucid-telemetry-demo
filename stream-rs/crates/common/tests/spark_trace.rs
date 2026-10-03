@@ -17,6 +17,8 @@ fn spark_trace_matches_rust_replay() {
     let spark_dir = Path::new(&spark_dir);
     let root = repo_root();
     let mut failures = Vec::new();
+    let mut compared_examples = 0;
+    let mut compared_probes = 0;
 
     for suite in ["examples", "probes"] {
         let dirs = case_dirs(&root, suite).expect("discover fixture directories");
@@ -47,6 +49,11 @@ fn spark_trace_matches_rust_replay() {
             }
             .unwrap_or_else(|error| panic!("{suite}/{case}: {error:#}"));
             let case_failures = compare_trace(&rust_trace, &spark_trace);
+            match suite {
+                "examples" => compared_examples += 1,
+                "probes" => compared_probes += 1,
+                _ => unreachable!(),
+            }
             if case_failures.is_empty() {
                 println!("PASS {suite}/{case}");
             } else {
@@ -58,6 +65,8 @@ fn spark_trace_matches_rust_replay() {
             }
         }
     }
+    assert_eq!(compared_examples, 16, "expected to compare all 16 examples");
+    assert_eq!(compared_probes, 5, "expected to compare all 5 probes");
     assert!(
         failures.is_empty(),
         "Rust/Spark trace mismatches:\n{}",
@@ -114,10 +123,20 @@ fn compare_trace(rust: &[TraceLine], spark: &[Value]) -> Vec<String> {
                 ));
             }
         }
-        let spark_dropped = spark_line["num_rows_dropped_by_watermark"]
-            .as_u64()
-            .unwrap_or_default();
-        let spark_harness_late = spark_line["harness_late"].as_u64().unwrap_or_default();
+        let spark_dropped = spark_line
+            .get("num_rows_dropped_by_watermark")
+            .and_then(Value::as_u64)
+            .unwrap_or_else(|| {
+                panic!(
+                    "batch {batch}: Spark trace line missing integer num_rows_dropped_by_watermark"
+                )
+            });
+        let spark_harness_late = spark_line
+            .get("harness_late")
+            .and_then(Value::as_u64)
+            .unwrap_or_else(|| {
+                panic!("batch {batch}: Spark trace line missing integer harness_late")
+            });
         if rust_line.num_rows_dropped_by_watermark != spark_dropped
             || spark_dropped != spark_harness_late
         {
