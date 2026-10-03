@@ -1,5 +1,5 @@
 // Output of the battery-health job: one final record per (VIN, 5-minute window).
-// Logical topic name `battery.health.v1` is a stage 2 choice; the spec doesn't name it.
+// Logical topic name `battery.health.v1`, fixed in the stage 2 review (SPEC.md, Resolved questions).
 // See contracts/battery-health.md.
 syntax = "proto3";
 

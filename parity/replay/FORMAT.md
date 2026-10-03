@@ -101,8 +101,8 @@ JSON object, every key present, every value a non-negative integer.
 }
 ```
 
-`battery-health` (no session state, so no `orphan` and no close reasons; see the
-contract's open questions):
+`battery-health` (no session state, so no `orphan` and no close reasons; exactly
+these four, per the contract's resolved questions):
 
 ```json
 {

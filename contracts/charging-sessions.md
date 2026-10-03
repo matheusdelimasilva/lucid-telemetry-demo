@@ -5,54 +5,25 @@ of truth; this file adds no rules. Both the legacy Scala job and the Rust port
 are built against it. These are rules for the synthetic system, not claims about
 how any manufacturer handles charging.
 
-## Open questions
+## Resolved questions
 
-Things the spec leaves open. Nothing below is decided here; the answers go into
-the spec (and then this file) before the baseline is frozen.
+Answered in the stage 2 review and recorded in `SPEC.md` ("Resolved questions").
+No open questions remain for this job.
 
-1. **Rejected messages and the watermark.** Step 3 says every *valid* message's
-   `ts` counts toward the running maximum. So a rejected message's `ts` never
-   moves the watermark, even if it's the largest `ts` seen. Confirm this is the
-   intent (example 11's rejected row has a smaller `ts`, so it doesn't discriminate).
-2. **Gap rule vs. step 9.** The 30-minute gap is checked in two places: at
-   processing time (step 8: "more than 30 minutes between consecutive accepted
-   session events" closes the session before the new event is handled) and at
-   the end of the batch (step 9: "last event plus 30 minutes strictly earlier
-   than the watermark"). Example 6 needs the step-8 reading (the 10:30:00.001
-   `progress` becomes an `orphan`). Confirm both apply, and that in step 8 the
-   comparison is `new.ts − last.ts > 30 min` (strict), so exactly 30 minutes is
-   the same session (example 5).
-3. **`start` with no energy after `plug_in`.** `start` is listed only under
-   "`start` or `progress` after `stop`". A `start` while a session is open and
-   not stopped is presumably an accepted session event that carries no energy
-   and refreshes the gap clock. Confirm.
-4. **`stop` as the last event and `end_ts`.** For a session that times out after
-   a `stop`, `end_ts` is the `stop`'s `ts` (the last accepted event). Confirm.
-5. **`energy_wh` on `plug_in`, `start`, `unplug`.** Validation says nonzero is
-   invalid there. It doesn't say what `energy_wh = 0` on those events means;
-   we read it as "no energy report" (adds nothing). Confirm.
-6. **`lat`/`lon`/`charger_type` set on non-`plug_in` events.** "Optional and
-   ignored" — we read it as: their presence or values never affect validation,
-   duplicates or output. But "conflicting duplicate" compares *decoded fields*;
-   does a second copy that differs only in an ignored field count as
-   `conflicting_duplicates`? We read yes (all decoded fields compare).
-7. **Duplicate copies of an accepted `plug_in` that opens a new session.** If a
-   second `plug_in` with a *new* `event_id` arrives while a session is open, it
-   replaces (rule table). If it has the *same* `event_id` as the opening
-   `plug_in`, it's a duplicate (ignored). Confirm no special case.
-8. **Batch of the flush's empty batch.** The flush is a control event plus "one
-   empty batch". Whether that empty batch appears in traces as its own batch
-   number is a stage 3 detail; `parity/replay/FORMAT.md` makes it explicit.
-9. **Output topic name for battery.** Not a charging question, but the same
-    ambiguity list: the spec names `charging.sessions.v1` but never names the
-    battery output topic. `battery.health.v1` is used as a placeholder.
-10. **`close_reason` wire encoding.** The spec gives lowercase words
-    (`unplug`, ...). The proto uses an enum (`UNPLUG`, ...). Counters keyed by
-    the lowercase words. Confirm the enum is acceptable for the wire format.
-11. **Watermark when no valid `ts` has been seen yet.** Before any valid message,
-    "the largest valid `ts` seen so far minus 10 minutes" is undefined. We read
-    the watermark as "unset / negative infinity" (nothing is late) until the
-    first valid message. Confirm.
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Rejected `ts` and the watermark | Never moves it. Validation comes first. |
+| 2 | Flush T | Largest valid `ts` + 1 hour; rejected rows never count. |
+| 3 | Gap check (step 8 vs. step 9) | Both apply, strict `>` 30 min; exactly 30 minutes is the same session. |
+| 4 | `start` while a session is open | Accepted, carries no energy, resets the 30-minute gap timer. |
+| 5 | `end_ts` when a session times out after `stop` | The `stop`'s `ts`. |
+| 6 | `energy_wh = 0` on `plug_in`/`start`/`unplug` | Adds nothing. |
+| 7 | Duplicate copy differing only in `lat`/`lon`/`charger_type` on a non-`plug_in` event | Counts as `conflicting_duplicates` (all decoded fields compare). |
+| 8 | `plug_in` with the same `event_id` as the opening `plug_in` | Plain duplicate; no special case. |
+| 9 | Batch number of the flush's empty batch | As `parity/replay/FORMAT.md` says: control event in batch N, empty batch N+1. |
+| 10 | Battery output topic | `battery.health.v1` (see the battery contract). |
+| 11 | `close_reason` encoding | `CloseReason` enum on the wire; counters keyed by the lowercase words. |
+| 12 | Watermark before any valid `ts` | Unset. It's only set at the end of a batch, so nothing in batch 1 is ever late. |
 
 ## Input: `vehicle.charging.v1`
 

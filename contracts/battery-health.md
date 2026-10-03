@@ -4,35 +4,21 @@ Restated from `SPEC.md` ("Behavior contract and replay", "`battery-health`").
 The spec is the source of truth; this file adds no rules. The legacy Scala job
 and the Rust reference job are both built against it.
 
-## Open questions
+## Resolved questions
 
-Nothing below is decided here.
+Answered in the stage 2 review and recorded in `SPEC.md` ("Resolved questions").
+No open questions remain for this job.
 
-1. **Output topic name.** The spec names the output fields but not the topic.
-   `battery.health.v1` (`proto/battery_health_v1.proto`) is a placeholder.
-2. **Which counters apply.** "Same steps as charging" gives `rejected`, `late`,
-   `duplicate_events`, `conflicting_duplicates`. There is no session state, so
-   `orphan` and `close_reason` don't apply. Confirm the battery counters file
-   has exactly those four.
-3. **Is `ts` "numeric" for the `optional` rule?** "Every numeric field is proto3
-   `optional` and required." We apply `optional` to the four readings only;
-   `ts` is a plain `int64` as in the charging message (its range check already
-   rejects the zero default). Confirm.
-4. **Empty windows.** A window with no accepted readings is never emitted
-   (`event_count` would be 0). We read "emitted windows are final" as applying
-   only to windows that have at least one accepted reading. Confirm.
-5. **`avg_soc_pct` arithmetic.** Compared within 1e-9 absolute; the spec doesn't
-   fix the summation order or type (double sum / count is assumed). Confirm
-   that's enough for parity.
-6. **Watermark when no valid `ts` has been seen yet.** As for charging: undefined
-   until the first valid reading; nothing is late before that. Confirm.
-7. **Windows emitted per step 8.** A window is emitted "once the watermark
-   reaches the window end": we read "reaches" as `watermark ≥ window_end`
-   (a watermark exactly at `window_start + 5 min` emits the window). Confirm,
-   since this is the same "at" boundary the charging steps use.
-8. **Window alignment.** Windows are assumed aligned to the Unix epoch
-   (`window_start = ts − ts mod 300,000`), which is Spark's default and matches
-   example 15 (14:10, 14:15). Confirm.
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Output topic | `battery.health.v1` (`proto/battery_health_v1.proto`). |
+| 2 | Counters | Exactly `rejected`, `late`, `duplicate_events`, `conflicting_duplicates`. |
+| 3 | Is `ts` `optional`? | No, plain `int64`; `optional` applies to the four readings only. |
+| 4 | Empty windows | Never emitted. |
+| 5 | `avg_soc_pct` arithmetic | Double sum ÷ count; the 1e-9 tolerance covers it. |
+| 6 | Watermark before any valid `ts` | Unset, as for charging; nothing in batch 1 is ever late. |
+| 7 | Window emission | `watermark ≥ window_end`. |
+| 8 | Window alignment | Aligned to the Unix epoch (`window_start = ts − ts mod 300,000`). |
 
 ## Input: `vehicle.battery.v1`
 
