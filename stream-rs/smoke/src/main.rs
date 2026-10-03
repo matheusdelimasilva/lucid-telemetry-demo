@@ -100,6 +100,7 @@ async fn main() -> Result<()> {
     consumer.assign(&tpl).context("assigning partition")?;
 
     let deadline = Instant::now() + Duration::from_secs(30);
+    let mut last_err = None;
     loop {
         match consumer.poll(Duration::from_secs(1)) {
             Some(Ok(m)) => {
@@ -112,10 +113,17 @@ async fn main() -> Result<()> {
                 println!("OK");
                 return Ok(());
             }
-            Some(Err(e)) => return Err(e).context("poll error"),
-            None if Instant::now() >= deadline => {
-                bail!("timed out after 30s waiting for the smoke message")
+            // librdkafka reports transient connection errors (e.g. a broker still
+            // starting) as consumer events; keep polling until the deadline.
+            Some(Err(e)) if Instant::now() < deadline => {
+                eprintln!("transient consumer error, retrying: {e}");
+                last_err = Some(e);
             }
+            Some(Err(e)) => return Err(e).context("poll error"),
+            None if Instant::now() >= deadline => match last_err {
+                Some(e) => return Err(e).context("timed out after 30s; last consumer error"),
+                None => bail!("timed out after 30s waiting for the smoke message"),
+            },
             None => {}
         }
     }
