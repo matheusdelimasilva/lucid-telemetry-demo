@@ -137,7 +137,7 @@ question 2). File format in `parity/replay/FORMAT.md`.
 ## Replay and flush
 
 As for charging (`parity/replay/FORMAT.md`), with the battery delay: T is the
-largest fixture `ts` plus 1 hour; one valid control reading on the reserved VIN
+largest *valid* fixture `ts` plus 1 hour (rejected rows never count); one valid control reading on the reserved VIN
 `TSTZZZZZZZZZZZZZZ` with `ts = T + 2 min`, then one empty batch, putting the
 watermark at exactly T. The reserved VIN is left out of outputs and counters.
 Drain condition: after the flush, the only state left is the reserved VIN's

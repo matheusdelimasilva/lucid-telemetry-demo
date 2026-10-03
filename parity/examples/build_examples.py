@@ -28,6 +28,7 @@ HOUR = 60 * MIN
 
 LAT, LON, CHARGER = 37.4, -122.1, "dc_fast"
 SOC, SOH, VOLT = 80.0, 95.0, 400.0
+REJECTED: set[str] = set()
 
 
 def t(clock: str, day_offset: int = 0) -> int:
@@ -65,7 +66,8 @@ assert sha("battery-health|TST00000000000001|1790000100000") == (
 )
 
 
-def ch(event_id, v, ts, event, energy_wh=0, lat=None, lon=None, charger=None):
+def ch(event_id, v, ts, event, energy_wh=0, lat=None, lon=None, charger=None, valid=True):
+    """valid=False marks a row the contract rejects (hand-marked, not computed); it never counts toward T."""
     m = {"event_id": event_id, "vin": v, "ts": ts, "event": event, "energy_wh": energy_wh}
     if lat is not None:
         m["lat"] = lat
@@ -73,6 +75,8 @@ def ch(event_id, v, ts, event, energy_wh=0, lat=None, lon=None, charger=None):
         m["lon"] = lon
     if charger is not None:
         m["charger_type"] = charger
+    if not valid:
+        REJECTED.add(event_id + "@" + str(ts))
     return m
 
 
@@ -154,6 +158,8 @@ def write_example(n, slug, job, batches, flush_clock, records, counters, waterma
         for m in msgs:
             seq += 1
             lines.append({"arrival_seq": seq, "batch": b, "message": m})
+            if m["event_id"] + "@" + str(m["ts"]) in REJECTED:
+                continue  # T is the largest *valid* ts + 1 h; rejected rows never count
             max_ts = m["ts"] if max_ts is None else max(max_ts, m["ts"])
     flush = t(flush_clock, flush_day_offset)
     assert flush == max_ts + HOUR, (n, flush, max_ts)
@@ -293,7 +299,7 @@ def main():
     n, v = 11, vin(11)
     write_example(n, "invalid-first-then-valid-copy", CS, [[
         plug_in(eid(n, 1), v, t("10:00")),
-        ch(eid(n, 2), v, t("10:05"), "PROGRESS", -5),
+        ch(eid(n, 2), v, t("10:05"), "PROGRESS", -5, valid=False),
         ch(eid(n, 2), v, t("10:10"), "PROGRESS", 200),
         ch(eid(n, 3), v, t("10:15"), "UNPLUG"),
     ]], "11:15",

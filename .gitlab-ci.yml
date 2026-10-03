@@ -50,8 +50,8 @@ spark-hello:
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
   script:
-    - docker build -f docker/spark.Dockerfile -t lucid-spark-hello:stage1 .
-    - docker run --rm lucid-spark-hello:stage1 > spark-hello.log 2>&1 || (cat spark-hello.log && exit 1)
+    - docker build -f docker/spark.Dockerfile -t lucid-spark-hello:dev .
+    - docker run --rm lucid-spark-hello:dev > spark-hello.log 2>&1 || (cat spark-hello.log && exit 1)
     - cat spark-hello.log
     - grep "DECODED vin=TST00000000000003" spark-hello.log
 

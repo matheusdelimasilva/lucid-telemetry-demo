@@ -14,12 +14,7 @@ the spec (and then this file) before the baseline is frozen.
    `ts` counts toward the running maximum. So a rejected message's `ts` never
    moves the watermark, even if it's the largest `ts` seen. Confirm this is the
    intent (example 11's rejected row has a smaller `ts`, so it doesn't discriminate).
-2. **Flush T and rejected/late rows.** The flush target T is "the largest fixture
-   `ts` plus 1 hour". Does "fixture `ts`" include rejected messages and late
-   copies, or only valid ones? (Example 4: the conflicting copy's `ts` 10:30 is
-   valid, so T = 11:30 either way; the question matters for fixtures whose
-   largest `ts` is on a rejected row.)
-3. **Gap rule vs. step 9.** The 30-minute gap is checked in two places: at
+2. **Gap rule vs. step 9.** The 30-minute gap is checked in two places: at
    processing time (step 8: "more than 30 minutes between consecutive accepted
    session events" closes the session before the new event is handled) and at
    the end of the batch (step 9: "last event plus 30 minutes strictly earlier
@@ -27,34 +22,34 @@ the spec (and then this file) before the baseline is frozen.
    `progress` becomes an `orphan`). Confirm both apply, and that in step 8 the
    comparison is `new.ts − last.ts > 30 min` (strict), so exactly 30 minutes is
    the same session (example 5).
-4. **`start` with no energy after `plug_in`.** `start` is listed only under
+3. **`start` with no energy after `plug_in`.** `start` is listed only under
    "`start` or `progress` after `stop`". A `start` while a session is open and
    not stopped is presumably an accepted session event that carries no energy
    and refreshes the gap clock. Confirm.
-5. **`stop` as the last event and `end_ts`.** For a session that times out after
+4. **`stop` as the last event and `end_ts`.** For a session that times out after
    a `stop`, `end_ts` is the `stop`'s `ts` (the last accepted event). Confirm.
-6. **`energy_wh` on `plug_in`, `start`, `unplug`.** Validation says nonzero is
+5. **`energy_wh` on `plug_in`, `start`, `unplug`.** Validation says nonzero is
    invalid there. It doesn't say what `energy_wh = 0` on those events means;
    we read it as "no energy report" (adds nothing). Confirm.
-7. **`lat`/`lon`/`charger_type` set on non-`plug_in` events.** "Optional and
+6. **`lat`/`lon`/`charger_type` set on non-`plug_in` events.** "Optional and
    ignored" — we read it as: their presence or values never affect validation,
    duplicates or output. But "conflicting duplicate" compares *decoded fields*;
    does a second copy that differs only in an ignored field count as
    `conflicting_duplicates`? We read yes (all decoded fields compare).
-8. **Duplicate copies of an accepted `plug_in` that opens a new session.** If a
+7. **Duplicate copies of an accepted `plug_in` that opens a new session.** If a
    second `plug_in` with a *new* `event_id` arrives while a session is open, it
    replaces (rule table). If it has the *same* `event_id` as the opening
    `plug_in`, it's a duplicate (ignored). Confirm no special case.
-9. **Batch of the flush's empty batch.** The flush is a control event plus "one
+8. **Batch of the flush's empty batch.** The flush is a control event plus "one
    empty batch". Whether that empty batch appears in traces as its own batch
    number is a stage 3 detail; `parity/replay/FORMAT.md` makes it explicit.
-10. **Output topic name for battery.** Not a charging question, but the same
+9. **Output topic name for battery.** Not a charging question, but the same
     ambiguity list: the spec names `charging.sessions.v1` but never names the
     battery output topic. `battery.health.v1` is used as a placeholder.
-11. **`close_reason` wire encoding.** The spec gives lowercase words
+10. **`close_reason` wire encoding.** The spec gives lowercase words
     (`unplug`, ...). The proto uses an enum (`UNPLUG`, ...). Counters keyed by
     the lowercase words. Confirm the enum is acceptable for the wire format.
-12. **Watermark when no valid `ts` has been seen yet.** Before any valid message,
+11. **Watermark when no valid `ts` has been seen yet.** Before any valid message,
     "the largest valid `ts` seen so far minus 10 minutes" is undefined. We read
     the watermark as "unset / negative infinity" (nothing is late) until the
     first valid message. Confirm.
@@ -198,7 +193,7 @@ format in `parity/replay/FORMAT.md`.
 
 Fixtures list events in arrival order with `arrival_seq` and batch number
 (`parity/replay/FORMAT.md`). Every fixture ends the same way: the target
-watermark T is the largest fixture `ts` plus 1 hour; one control `plug_in` on
+watermark T is the largest *valid* fixture `ts` plus 1 hour (rejected rows never count); one control `plug_in` on
 the reserved VIN `TSTZZZZZZZZZZZZZZ` with `ts = T + 10 min`, then one empty
 batch. That puts the watermark at exactly T. The reserved VIN is left out of
 outputs and counters.

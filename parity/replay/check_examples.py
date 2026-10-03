@@ -131,7 +131,7 @@ def check_example(example_dir):
     if not events:
         raise CheckError(f"{name}: no event lines")
 
-    max_ts = None
+    ts_seen = set()
     last_batch = 0
     input_vins = set()
     input_batches = set()
@@ -159,7 +159,7 @@ def check_example(example_dir):
         input_vins.add(vin)
         ts = message.get("ts")
         if isinstance(ts, int) and not isinstance(ts, bool):
-            max_ts = ts if max_ts is None else max(max_ts, ts)
+            ts_seen.add(ts)
 
     if events[0]["batch"] != 1:
         raise CheckError(f"{name}: first event batch must be 1")
@@ -167,12 +167,14 @@ def check_example(example_dir):
         raise CheckError(
             f"{name}: flush batch {flush['batch']} != last event batch + 1 ({last_batch + 1})"
         )
-    if max_ts is None:
+    if not ts_seen:
         raise CheckError(f"{name}: no int64 ts found in any event")
-    if flush["advance_watermark_to"] != max_ts + 3_600_000:
+    # T = largest *valid* ts + 1 h; validity is the job's business, so only check
+    # that T - 1 h is some event's ts.
+    if flush["advance_watermark_to"] - 3_600_000 not in ts_seen:
         raise CheckError(
-            f"{name}: advance_watermark_to {flush['advance_watermark_to']} != "
-            f"max ts + 3_600_000 ({max_ts + 3_600_000})"
+            f"{name}: advance_watermark_to {flush['advance_watermark_to']} - 3_600_000 "
+            "is not the ts of any event line"
         )
 
     records = expected["records"]

@@ -63,7 +63,7 @@ Every fixture ends with exactly one flush line, and it is the last line:
 
 | Key | Type | Rules |
 | --- | --- | --- |
-| `advance_watermark_to` | integer | The target watermark T in epoch milliseconds: the largest `ts` of any event line in the file plus 1 hour (3,600,000 ms). Stated explicitly so a reader doesn't have to derive it. |
+| `advance_watermark_to` | integer | The target watermark T in epoch milliseconds: the largest `ts` of any event line that passes the job's contract validation, plus 1 hour (3,600,000 ms). Rejected rows never count, late or duplicate copies do (they are valid). Stated explicitly so a reader doesn't have to derive it; `check_examples.py` only checks that T − 1 h is the `ts` of some event line. |
 | `batch` | integer | The batch of the synthesized control event: last event batch + 1. |
 
 Meaning, per the spec's replay section: the runner synthesizes one valid control
@@ -76,7 +76,7 @@ result is a watermark of exactly T. The reserved VIN is excluded from outputs an
 counters. The control event's `event_id` and reading values are the runner's
 choice; they never appear in outputs.
 
-A fixture with no event lines is invalid (T is undefined).
+A fixture with no valid event lines is invalid (T is undefined).
 
 ## Counters file
 

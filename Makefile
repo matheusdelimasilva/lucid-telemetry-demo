@@ -29,10 +29,10 @@ check-examples: $(VENV)
 	$(PY) parity/replay/check_examples.py
 
 spark-image:
-	docker build -f docker/spark.Dockerfile -t lucid-spark-hello:stage1 .
+	docker build -f docker/spark.Dockerfile -t lucid-spark-hello:dev .
 
 spark-hello:
-	docker run --rm lucid-spark-hello:stage1
+	docker run --rm lucid-spark-hello:dev
 
 proto-check:
-	docker run --rm --entrypoint sh lucid-spark-hello:stage1 /app/check-proto-optional.sh
+	docker run --rm --entrypoint sh lucid-spark-hello:dev /app/check-proto-optional.sh
