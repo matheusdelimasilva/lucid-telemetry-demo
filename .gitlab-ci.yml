@@ -47,6 +47,7 @@ rust-replay:
       - .cargo/registry
   script:
     - apt-get update && apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
+    - rustup component add rustfmt clippy
     - cd stream-rs
     - cargo fmt --check
     - cargo clippy -p common --all-targets -- -D warnings
