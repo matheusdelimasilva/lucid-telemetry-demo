@@ -54,6 +54,11 @@ object Harness {
     require(suites.nonEmpty, "usage: Harness --descriptor <desc> --out <dir> <suite-dir>...")
 
     val spark = LegacyJob.session("replay-harness")
+    if (spark.conf.get("spark.sql.streaming.noDataMicroBatches.enabled", "true") != "true") {
+      System.err.println(
+        "REFUSED: spark.sql.streaming.noDataMicroBatches.enabled must be true (STAGE3.md finding 2)")
+      sys.exit(2)
+    }
     val messages = loadDescriptors(descriptor)
     val outDir = Paths.get(out)
     val summary = mutable.ArrayBuffer[ObjectNode]()

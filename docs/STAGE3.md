@@ -63,7 +63,17 @@ call, so it lands in the same fixture batch.
    So contract step 4 (late = `ts` ≤ the previous batch's watermark) holds, but only
    while `spark.sql.streaming.noDataMicroBatches.enabled` keeps its default `true`.
    The trace records both watermarks per micro-batch (`late_filter_watermark`,
-   `eviction_watermark`).
+   `eviction_watermark`). The job session sets
+   `spark.sql.streaming.noDataMicroBatches.enabled=true` explicitly
+   (`LegacyJob.session`), and the harness stops before replaying if it's off.
+
+   **Kafka entry point with continuous input.** When data keeps arriving, Spark runs
+   no no-data batch between data batches. Its late filter then lags the contract by
+   one micro-batch: a data micro-batch filters with the watermark from two batches
+   back instead of one. So rows with `ts` between the two watermarks aren't dropped,
+   and Spark counts fewer `late` rows than the contract. Those rows also reach the
+   state function. Contract parity is claimed for the replay harness only (see
+   below).
 3. **The watermark before any valid `ts` shows up as 0, not "unset".** Progress
    reports `1970-01-01T00:00:00Z` for batch 1. This is equivalent to "unset"
    (contract resolved question 12): validation rejects any `ts` ≤ 0, so nothing in
@@ -111,3 +121,14 @@ Nothing in the contracts required a workaround in Spark.
   bind-mount the checkout.
 - **Probe conventions.** VIN `TSTP` + number; `event_id`
   `00000000-0000-4000-8000-00000099NNii`.
+
+## What remains before production
+
+- **Late filtering on the Kafka entry point.** The Kafka entry point doesn't
+  reproduce contract step 4 under continuous input: the late filter lags one
+  micro-batch (finding 2), so `late` undercounts and rows that should be late reach
+  deduplication. Parity with the contract is shown on the replay harness only,
+  where a no-data batch runs between every pair of data batches. Before the Kafka
+  job can be a production baseline, it needs its own late filter against the
+  previous micro-batch's watermark, or a trigger cadence that guarantees a no-data
+  batch between data batches.

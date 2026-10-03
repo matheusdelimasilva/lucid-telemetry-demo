@@ -60,6 +60,7 @@ object LegacyJob {
       .config("spark.sql.shuffle.partitions", "1")
       .config("spark.sql.session.timeZone", "UTC")
       .config("spark.ui.enabled", "false")
+      .config("spark.sql.streaming.noDataMicroBatches.enabled", "true")
       .config("spark.sql.streaming.noDataProgressEventInterval", "86400000")
       .config("spark.sql.streaming.numRecentProgressUpdates", "100000")
       .getOrCreate()
