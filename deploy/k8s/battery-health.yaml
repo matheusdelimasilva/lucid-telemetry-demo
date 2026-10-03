@@ -1,0 +1,53 @@
+# Illustrative target runtime for the battery-health job; not applied anywhere
+# in this demo. One replica: the job consumes one partition of the input topic
+# and keeps its state in memory (see crates/common/README.md).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: battery-health
+data:
+  KAFKA_BROKER: redpanda:9092
+  INPUT_TOPIC: vehicle.battery.v1
+  # Shadow topic during the cutover (SPEC.md); the logical topic once the
+  # Spark job is retired.
+  OUTPUT_TOPIC: battery.health.v1.shadow
+  GROUP_ID: battery-health
+  INPUT_PARTITION: "0"
+  BATCH_MAX_EVENTS: "500"
+  BATCH_POLL_TIMEOUT_MS: "1000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: battery-health
+  labels:
+    app: battery-health
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: battery-health
+  template:
+    metadata:
+      labels:
+        app: battery-health
+    spec:
+      containers:
+        - name: battery-health
+          image: lucid-battery-health:dev
+          args: ["--kafka"]
+          envFrom:
+            - configMapRef:
+                name: battery-health
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false

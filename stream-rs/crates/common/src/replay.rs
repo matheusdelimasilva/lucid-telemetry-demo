@@ -9,6 +9,7 @@ use serde_json::Value;
 use crate::event::InputEvent;
 use crate::job::{JobSpec, RESERVED_VIN};
 use crate::processor::Processor;
+use crate::record::JsonRecord;
 use crate::runner::{Counters, DrainReport, Runner};
 
 const FLUSH_EXTENSION_MS: i64 = 3_600_000;
@@ -25,15 +26,25 @@ pub struct TraceLine {
     pub records_emitted: Vec<Value>,
 }
 
+/// Same shape as the Spark harness's `drain.json`. Spark reports each VIN's last
+/// state marker (`busy`) and the batch it was emitted in; the Rust runner visits
+/// every VIN's state in every batch, so `batch` is the final flush batch for all.
 #[derive(Clone, Debug, Serialize)]
 pub struct DrainArtifact {
     pub passed: bool,
     pub final_watermark: i64,
     pub target_watermark: i64,
-    pub state_rows_total: usize,
+    pub state_rows_total_last_progress: usize,
     pub vins_reached_state_plus_reserved: usize,
-    pub vins: Vec<crate::runner::VinDrain>,
+    pub last_markers: Vec<LastMarker>,
     pub failures: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct LastMarker {
+    pub vin: String,
+    pub batch: u64,
+    pub busy: bool,
 }
 
 #[derive(Serialize)]
@@ -50,7 +61,23 @@ pub struct ReplayRun<P: Processor> {
     pub drain: DrainArtifact,
     pub outputs: Vec<Value>,
     pub counters: Counters,
+    /// Harness self-check failures (the Spark harness's `failures`): empty means
+    /// the replay's own `result.json` status is PASS.
+    pub failures: Vec<String>,
     _processor: std::marker::PhantomData<P>,
+}
+
+/// Records are written sorted by `output_id` (string order), as the Spark
+/// harness does; records without one keep their emission order.
+pub fn sort_records(records: &mut [Value]) {
+    records.sort_by(|a, b| {
+        let key = |v: &Value| {
+            v.get("output_id")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        };
+        key(a).cmp(&key(b))
+    });
 }
 
 impl<P: Processor> ReplayRun<P> {
@@ -67,11 +94,13 @@ impl<P: Processor> ReplayRun<P> {
             .with_context(|| format!("writing {}", out_dir.join("trace.jsonl").display()))?;
 
         write_json(out_dir.join("drain.json"), &self.drain)?;
+        let mut records = self.outputs.clone();
+        sort_records(&mut records);
         write_json(
             out_dir.join("outputs.json"),
             &OutputsArtifact {
                 job: self.job,
-                records: &self.outputs,
+                records: &records,
                 counters: &self.counters,
             },
         )
@@ -94,7 +123,7 @@ struct Fixture<E> {
 pub fn run_fixture<P>(path: &Path, spec: JobSpec<P::Event>, processor: P) -> Result<ReplayRun<P>>
 where
     P: Processor,
-    P::Output: Serialize,
+    P::Output: JsonRecord,
 {
     let fixture = parse_fixture::<P::Event>(path)?;
     let valid_ts = fixture
@@ -179,35 +208,20 @@ where
         empty,
     )?);
 
-    let drain_report = runner.drain_report();
-    let final_watermark = runner.watermark().unwrap_or_default();
-    let vins_reached_state_plus_reserved = reached_vins.len() + 1;
-    let mut failures = Vec::new();
-    if final_watermark != fixture.target_watermark {
-        failures.push(format!(
-            "final watermark {final_watermark} != target {}",
-            fixture.target_watermark
-        ));
-    }
-    if !drain_report.is_drained() {
-        failures.push(
-            "non-reserved VIN remains open or buffered, or reserved VIN has no buffered event"
-                .to_string(),
-        );
-    }
-    if drain_report.state_rows_total != vins_reached_state_plus_reserved {
-        failures.push(format!(
-            "state_rows_total {} != vins_reached_state_plus_reserved {vins_reached_state_plus_reserved}",
-            drain_report.state_rows_total
-        ));
-    }
     let drain = drain_artifact(
-        drain_report,
-        final_watermark,
+        runner.drain_report(),
+        runner.watermark().unwrap_or_default(),
         fixture.target_watermark,
-        vins_reached_state_plus_reserved,
-        failures,
+        reached_vins.len() + 1,
+        fixture.flush_batch + 1,
     );
+    let mut failures = Vec::new();
+    if !drain.passed {
+        failures.push(format!(
+            "drain check failed ({}); parity refuses to compare",
+            drain.failures.join("; ")
+        ));
+    }
     let outputs = trace
         .iter()
         .flat_map(|line| line.records_emitted.iter().cloned())
@@ -220,11 +234,12 @@ where
         drain,
         outputs,
         counters: runner.counters().clone(),
+        failures,
         _processor: std::marker::PhantomData,
     })
 }
 
-fn trace_line<O: Serialize>(
+fn trace_line<O: JsonRecord>(
     batch: u64,
     kind: &'static str,
     arrival_seqs: Vec<u64>,
@@ -233,10 +248,10 @@ fn trace_line<O: Serialize>(
 ) -> Result<TraceLine> {
     let records_emitted = outcome
         .emitted
-        .into_iter()
+        .iter()
         .filter(|(vin, _)| vin != RESERVED_VIN)
-        .map(|(_, output)| serde_json::to_value(output))
-        .collect::<serde_json::Result<Vec<_>>>()?;
+        .map(|(_, output)| output.to_json())
+        .collect::<Vec<_>>();
     Ok(TraceLine {
         batch,
         kind,
@@ -254,15 +269,54 @@ fn drain_artifact(
     final_watermark: i64,
     target_watermark: i64,
     vins_reached_state_plus_reserved: usize,
-    failures: Vec<String>,
+    last_batch: u64,
 ) -> DrainArtifact {
+    let mut failures = Vec::new();
+    if final_watermark != target_watermark {
+        failures.push(format!(
+            "final watermark {final_watermark} != target {target_watermark}"
+        ));
+    }
+    let last_markers = report
+        .vins
+        .iter()
+        .map(|entry| LastMarker {
+            vin: entry.vin.clone(),
+            batch: last_batch,
+            busy: entry.buffered > 0 || entry.open,
+        })
+        .collect::<Vec<_>>();
+    let busy_others = last_markers
+        .iter()
+        .filter(|marker| marker.busy && marker.vin != RESERVED_VIN)
+        .map(|marker| marker.vin.as_str())
+        .collect::<Vec<_>>();
+    if !busy_others.is_empty() {
+        failures.push(format!(
+            "VINs still busy after the flush: {}",
+            busy_others.join(",")
+        ));
+    }
+    if !report
+        .vins
+        .iter()
+        .any(|entry| entry.vin == RESERVED_VIN && entry.buffered > 0)
+    {
+        failures.push("reserved VIN's last marker is not busy = true".to_string());
+    }
+    if report.state_rows_total != vins_reached_state_plus_reserved {
+        failures.push(format!(
+            "state rows total {} != VINs that reached state + 1 ({vins_reached_state_plus_reserved})",
+            report.state_rows_total
+        ));
+    }
     DrainArtifact {
         passed: failures.is_empty(),
         final_watermark,
         target_watermark,
-        state_rows_total: report.state_rows_total,
+        state_rows_total_last_progress: report.state_rows_total,
         vins_reached_state_plus_reserved,
-        vins: report.vins,
+        last_markers,
         failures,
     }
 }

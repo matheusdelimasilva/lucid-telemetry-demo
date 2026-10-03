@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures rust-replay rust-spark-trace rust-parity oracle-guard
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures rust-replay rust-spark-trace rust-tests rust-parity battery-image oracle-guard
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -112,9 +112,18 @@ rust-replay:
 rust-spark-trace: spark-examples
 	cd stream-rs && SPARK_EXAMPLES_DIR=$(CURDIR)/build/spark-examples cargo test -p common -- --ignored spark
 
-# What the rust-parity CI job runs (auto-discovers stream-rs/jobs/*).
+# Every Rust crate's tests, including the job crates under stream-rs/jobs/*.
+# Add `-- --ignored` (with `make up`) for the Kafka integration tests.
+rust-tests:
+	cd stream-rs && cargo test --workspace
+
+# What the rust-parity CI job runs (auto-discovers stream-rs/jobs/*). Needs
+# `make up` for the jobs' ignored Kafka tests and Docker for the image builds.
 rust-parity:
 	sh ci/rust_parity.sh
+
+battery-image:
+	docker build -f deploy/battery-health.Dockerfile -t lucid-battery-health:dev .
 
 # What the oracle-guard CI job runs, against the local main. CI runs the target
 # branch's copy of the script, not the checkout's.

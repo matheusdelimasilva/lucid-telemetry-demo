@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use common::event::InputEvent;
 use common::job::RESERVED_VIN;
 use common::processor::Processor;
+use common::record::JsonRecord;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -21,6 +22,12 @@ pub enum Receipt {
     },
     #[serde(rename = "on_watermark")]
     Watermark { vin: String, watermark: i64 },
+}
+
+impl JsonRecord for Receipt {
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self).expect("Receipt serializes")
+    }
 }
 
 #[derive(Clone, Debug)]

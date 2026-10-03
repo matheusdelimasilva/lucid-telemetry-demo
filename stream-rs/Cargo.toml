@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
 # jobs/battery-health joins in stage 5.
-members = ["smoke", "crates/common"]
+members = ["smoke", "crates/common", "jobs/battery-health"]
