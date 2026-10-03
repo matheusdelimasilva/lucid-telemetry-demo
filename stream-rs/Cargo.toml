@@ -1,5 +1,4 @@
 [workspace]
 resolver = "2"
-# crates/common joins the workspace in stage 3 (replay runner) and
-# jobs/battery-health in stage 5; both are README-only for now.
-members = ["smoke"]
+# jobs/battery-health joins in stage 5.
+members = ["smoke", "crates/common"]

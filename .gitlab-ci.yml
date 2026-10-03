@@ -30,6 +30,34 @@ rust-smoke:
     - apt-get update && apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
     - cd stream-rs && cargo build --release -p smoke && cargo run --release -p smoke
 
+rust-replay:
+  stage: test
+  image: rust:1.90.0-bookworm
+  needs:
+    - job: spark-examples
+      artifacts: true
+  services:
+    - name: $REDPANDA_IMAGE
+      alias: redpanda
+      command: ["redpanda", "start", "--smp", "1", "--overprovisioned", "--mode", "dev-container", "--kafka-addr", "PLAINTEXT://0.0.0.0:9092", "--advertise-kafka-addr", "PLAINTEXT://redpanda:9092"]
+  cache:
+    key: rust-replay
+    paths:
+      - stream-rs/target
+      - .cargo/registry
+  script:
+    - apt-get update && apt-get install -y cmake build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
+    - rustup component add rustfmt clippy
+    - cd stream-rs
+    - cargo fmt --check
+    - cargo clippy -p common --all-targets -- -D warnings
+    - cargo test -p common
+    - SPARK_EXAMPLES_DIR=$CI_PROJECT_DIR/build/spark-examples cargo test -p common -- --ignored --nocapture
+  artifacts:
+    when: always
+    paths:
+      - build/rust-examples
+
 python-smoke:
   stage: test
   image: python:3.12-slim
