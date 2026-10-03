@@ -56,7 +56,7 @@ object ChargingSessions extends Job {
       kind: String,
       vin: String,
       counter: Option[String],
-      open: Option[Boolean],
+      busy: Option[Boolean],
       record: Option[ChargingRecord])
 
   case class Payload(

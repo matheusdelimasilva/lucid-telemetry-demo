@@ -53,7 +53,7 @@ object BatteryHealth extends Job {
       kind: String,
       vin: String,
       counter: Option[String],
-      open: Option[Boolean],
+      busy: Option[Boolean],
       record: Option[BatteryRecord])
 
   case class Payload(

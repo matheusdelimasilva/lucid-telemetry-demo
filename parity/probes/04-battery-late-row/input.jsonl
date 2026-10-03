@@ -1,0 +1,6 @@
+{"arrival_seq":1,"batch":1,"message":{"event_id":"00000000-0000-4000-8000-000000990401","vin":"TSTP0000000000004","ts":1789984800000,"soc_pct":80.0,"soh_pct":95.0,"cell_temp_max_c":30.0,"pack_voltage_v":400.0}}
+{"arrival_seq":2,"batch":1,"message":{"event_id":"00000000-0000-4000-8000-000000990402","vin":"TSTP0000000000004","ts":1789985160000,"soc_pct":80.0,"soh_pct":95.0,"cell_temp_max_c":30.0,"pack_voltage_v":400.0}}
+{"arrival_seq":3,"batch":2,"message":{"event_id":"00000000-0000-4000-8000-000000990403","vin":"TSTP0000000000004","ts":1789984980000,"soc_pct":80.0,"soh_pct":95.0,"cell_temp_max_c":60.0,"pack_voltage_v":400.0}}
+{"arrival_seq":4,"batch":2,"message":{"event_id":"00000000-0000-4000-8000-000000990404","vin":"TSTP0000000000004","ts":1789985040000,"soc_pct":80.0,"soh_pct":95.0,"cell_temp_max_c":60.0,"pack_voltage_v":400.0}}
+{"arrival_seq":5,"batch":2,"message":{"event_id":"00000000-0000-4000-8000-000000990405","vin":"TSTP0000000000004","ts":1789985220000,"soc_pct":80.0,"soh_pct":95.0,"cell_temp_max_c":31.0,"pack_voltage_v":400.0}}
+{"advance_watermark_to":1789988820000,"batch":3}

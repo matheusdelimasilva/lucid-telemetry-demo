@@ -1,4 +1,4 @@
-# Stage 2 CI. The oracle guard job is not added yet.
+# Stage 2-3 CI. The oracle guard job is not added yet.
 
 workflow:
   rules:
@@ -71,3 +71,18 @@ proto-optional-check:
     - curl -fsSL https://github.com/protocolbuffers/protobuf/releases/download/v25.5/protoc-25.5-linux-x86_64.zip -o /tmp/protoc.zip
     - unzip -o /tmp/protoc.zip -d /usr/local && protoc --version
     - sh docker/check-proto-optional.sh
+
+spark-examples:
+  stage: test
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - apk add --no-cache make
+    - make spark-examples
+  artifacts:
+    when: always
+    paths:
+      - build/spark-examples

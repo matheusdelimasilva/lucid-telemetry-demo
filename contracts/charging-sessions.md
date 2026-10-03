@@ -169,9 +169,11 @@ the reserved VIN `TSTZZZZZZZZZZZZZZ` with `ts = T + 10 min`, then one empty
 batch. That puts the watermark at exactly T. The reserved VIN is left out of
 outputs and counters.
 
-Drain condition, checked rather than assumed: after the flush, the only state
-left is the reserved VIN's buffered event. If the check fails, parity refuses to
-compare.
+Drain condition, checked rather than assumed: after the flush, no VIN other than the reserved one has an open session (charging), an open window (battery), or buffered events. Seen IDs may remain; they're kept for the whole run.
+
+- Scala: every state-function call emits a status marker `{vin, batch, busy}`, where `busy` means the VIN has an open session or window or buffered events. Every VIN's last marker must be `busy = false`, except the reserved VIN's, which must be `busy = true` (its control event is still buffered). Cross-check: the stateful operator's `numRowsTotal` in the last progress equals the number of distinct VINs that reached state (valid, non-late rows) plus one for the reserved VIN.
+- Rust: inspect the state map directly with the same rule.
+- If the check fails, parity refuses to compare.
 
 ## Acceptance examples
 

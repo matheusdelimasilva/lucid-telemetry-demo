@@ -14,8 +14,9 @@ import scala.collection.immutable.ListMap
   *   - `kind`: "record" | "counter" | "state"
   *   - `vin`: String
   *   - `counter`: counter name for kind = "counter", else null
-  *   - `open`: for kind = "state", true iff the key still holds buffered events or an
-  *     open session/window after this invocation; else null
+  *   - `busy`: for kind = "state" (the status marker every state-function call emits),
+  *     true iff the VIN still has buffered events or an open session/window after this
+  *     invocation; else null. The marker's batch is the micro-batch id the sink sees.
   *   - `record`: for kind = "record", a struct whose field names are the output proto's
   *     field names (enums as value-name strings); else null
   */

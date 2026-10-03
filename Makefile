@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -36,3 +36,17 @@ spark-hello:
 
 proto-check:
 	docker run --rm --entrypoint sh lucid-spark-hello:dev /app/check-proto-optional.sh
+
+SPARK_EXAMPLES_OUT := build/spark-examples
+
+spark-examples: spark-image
+	rm -rf $(SPARK_EXAMPLES_OUT)
+	mkdir -p $(dir $(SPARK_EXAMPLES_OUT))
+	docker rm -f lucid-spark-examples >/dev/null 2>&1 || true
+	status=0; \
+	docker run --name lucid-spark-examples -w /legacy-spark --entrypoint sbt lucid-spark-hello:dev \
+		"replayHarness/run --descriptor /app/telemetry.desc --out /out /repo/parity/examples /repo/parity/probes" \
+		|| status=$$?; \
+	docker cp lucid-spark-examples:/out $(SPARK_EXAMPLES_OUT) || true; \
+	docker rm -f lucid-spark-examples >/dev/null 2>&1 || true; \
+	exit $$status
