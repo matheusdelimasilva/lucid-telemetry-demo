@@ -37,11 +37,25 @@ harness writes `implementation: spark-legacy` instead of `engine`; that counts
 as `spark` and is additionally checked against the pinned Spark environment.
 
 **Suite mode** (`--out <dir> <suite-dir>...`) runs every `<nn>-<slug>/` case
-under the given suites whose `expected.json` names this job, writes
+under the given suites whose `expected.json` names this job and writes
 `<dir>/<suite>/<case>/{outputs.json,trace.jsonl,drain.json,result.json}` as the
-Spark harness does, prints one `PASS`/`FAIL` line per case, and exits 1 on any
-mismatch. Cases for the other job are skipped, not failed.
+Spark harness does (`<suite>` is the suite directory's basename, e.g.
+`examples/01-basic-session`). `outputs.json` is `{job, records, counters}` with
+records sorted by `output_id`. Cases for the other job are skipped, not failed.
+The binary may print its own `PASS`/`FAIL` line per case and exit 1 on a
+mismatch, but that verdict is informational: **the grading is done by
+`tools/suite_check.py`**, which reads each case's `outputs.json` (and
+`trace.jsonl` for the watermarks `expected.json` states) and compares them
+with `expected.json` under the same rules as `tools/parity.py` (records by
+`output_id` with `tools/compare_rules.json`, counters, repeated `output_id`s
+fail), and fails unless it checked exactly the cases that name the job.
 
-Exit code: 0 only if every check passed. The script runs fixture mode, then
-suite mode, then `tools/parity.py --job <job> --run build/rust-parity` and
+Exit code of the script: 0 only if every check passed. It runs fixture mode,
+suite mode, `tools/suite_check.py --job <job> --run build/rust-parity/examples/<job>`,
+then `tools/parity.py --job <job> --run build/rust-parity` and
 `tools/privacy_check.py --job <job> --run build/rust-parity`.
+
+One known limit: each engine reports its own drain result (`drain.json`),
+because only the job can see its own state. The records and counters are
+graded independently (golden files for the fixture, `expected.json` for the
+examples and probes), so a wrong drain self-report cannot hide a wrong output.

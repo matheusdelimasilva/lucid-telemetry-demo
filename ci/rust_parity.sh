@@ -3,7 +3,9 @@
 # stream-rs/jobs/*/Cargo.toml and, for each one:
 #   1. replays its frozen fixture        -> build/rust-parity/<job>.*
 #   2. replays the 16 examples + probes  -> build/rust-parity/examples/<job>/
-#   3. tools/parity.py and tools/privacy_check.py on the fixture run
+#   3. tools/suite_check.py grades the examples/probes output independently
+#      (the binary's own PASS/FAIL lines are informational)
+#   4. tools/parity.py and tools/privacy_check.py on the fixture run
 # The CLI contract a job binary must follow is in stream-rs/jobs/README.md.
 # Stages 5-6 add a job directory; this script and the CI config stay untouched.
 set -eu
@@ -41,9 +43,12 @@ for job in "$@"; do
   echo "== $job: examples and probes (parity/examples parity/probes -> $OUT/examples/$job)"
   if ! cargo run --manifest-path stream-rs/Cargo.toml $CARGO_FLAGS -p "$job" -- \
       --out "$OUT/examples/$job" parity/examples parity/probes; then
-    echo "FAIL $job: examples/probes"
-    status=1
+    echo "note: $job's own suite verdict is FAIL (informational; tools/suite_check.py decides)"
   fi
+
+  echo "== $job: suite-check (tools/suite_check.py grades $OUT/examples/$job against expected.json)"
+  "$PYTHON" tools/suite_check.py --job "$job" --run "$OUT/examples/$job" \
+      --suite parity/examples --suite parity/probes || status=1
 
   echo "== $job: parity"
   "$PYTHON" tools/parity.py --job "$job" --run "$OUT" || status=1
