@@ -238,9 +238,33 @@ Setting Spark's watermark option isn't a full specification of the procedure abo
  
 - `parity/replay/<job>.jsonl` lists events in arrival order, each with its `arrival_seq` and batch number.
 - Spark replays it through a `MemoryStream`, calling `processAllAvailable()` after each batch. Rust's replay runner follows the same batches. Both write a trace: for each batch, the input events, the watermark in effect, and the records emitted.
-- **Flush.** Every fixture ends the same way. The target watermark T is the largest fixture `ts` plus 1 hour. Each job gets one control event on the reserved VIN `TSTZZZZZZZZZZZZZZ` with `ts` = T plus the job's delay: a `plug_in` for charging (T + 10 min), a valid reading for battery (T + 2 min). Then one empty batch, which in Spark is the no-data batch that runs when the watermark moves. That puts the watermark at exactly T. The reserved VIN is left out of outputs and counters.
+- **Flush.** Every fixture ends the same way. The target watermark T is the largest *valid* fixture `ts` plus 1 hour; rejected rows never count. Each job gets one control event on the reserved VIN `TSTZZZZZZZZZZZZZZ` with `ts` = T plus the job's delay: a `plug_in` for charging (T + 10 min), a valid reading for battery (T + 2 min). Then one empty batch, which in Spark is the no-data batch that runs when the watermark moves. That puts the watermark at exactly T. The reserved VIN is left out of outputs and counters.
 - **Drain condition**, checked rather than assumed: after the flush, the only state left is the reserved VIN's buffered event. Scala checks the stateful operator's state row count in the last progress (one key); Rust checks its state map. If the check fails, parity refuses to compare.
 - One input partition, one worker. That's the boundary for this repo; parallelism is pilot scope.
+ 
+**Resolved questions** (stage 2 review; these are part of the contract)
+ 
+| Job | Question | Answer |
+| --- | --- | --- |
+| charging | Rejected `ts` and the watermark | Never moves it. Validation comes first. |
+| charging | Flush T | Largest valid `ts` + 1 hour; rejected rows never count. |
+| charging | Gap check | Both step 8 and step 9 apply, strict `>` 30 min. |
+| charging | `start` in an open session | Accepted, no energy, resets the 30-minute gap timer. |
+| charging | `end_ts` after `stop` | The `stop`'s `ts`. |
+| charging | `energy_wh = 0` on `plug_in`/`start`/`unplug` | Adds nothing. |
+| charging | Duplicate copy differs only in ignored fields | Counts as conflicting (all decoded fields compare). |
+| charging | Same-ID `plug_in` while a session is open | Plain duplicate. |
+| charging | Empty flush batch | As `parity/replay/FORMAT.md` says: control event in batch N, empty batch N+1. |
+| charging | `close_reason` encoding | Enum on the wire; counters keyed by lowercase words. |
+| charging | Watermark before any valid `ts` | Unset. It's only set at the end of a batch, so nothing in batch 1 is ever late. |
+| battery | Output topic | `battery.health.v1`. |
+| battery | Counters | Exactly `rejected`, `late`, `duplicate_events`, `conflicting_duplicates`. |
+| battery | Is `ts` `optional`? | No, plain `int64`. |
+| battery | Empty windows | Never emitted. |
+| battery | `avg_soc_pct` | Double sum ÷ count; the 1e-9 tolerance covers it. |
+| battery | Watermark before any valid `ts` | Same as charging: unset; nothing in batch 1 is ever late. |
+| battery | Window emission | `watermark ≥ window_end`. |
+| battery | Window alignment | Aligned to the Unix epoch. |
 ## Legacy Scala jobs
  
 Two small jobs, each under about 200 lines. Each hides rules a reader could miss, because that's what makes a real port hard and gives Devin something to find.

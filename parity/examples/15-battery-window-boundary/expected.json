@@ -1,0 +1,31 @@
+{
+  "job": "battery-health",
+  "records": [
+    {
+      "output_id": "cbb8823f0ae1dcedaa8c3d5eb88fbf1c4100d1b859faf5aa567c4027983f5499",
+      "vin": "TST00000000000015",
+      "window_start": 1789999800000,
+      "avg_soc_pct": 80.0,
+      "min_soh_pct": 95.0,
+      "max_cell_temp_c": 30.0,
+      "alert": false,
+      "event_count": 1
+    },
+    {
+      "output_id": "aebd17c95a2ece7b3dbce356edcf3f012610d54644a25e2b92ee01f02150930a",
+      "vin": "TST00000000000015",
+      "window_start": 1790000100000,
+      "avg_soc_pct": 80.0,
+      "min_soh_pct": 95.0,
+      "max_cell_temp_c": 30.0,
+      "alert": false,
+      "event_count": 1
+    }
+  ],
+  "counters": {
+    "rejected": 0,
+    "late": 0,
+    "duplicate_events": 0,
+    "conflicting_duplicates": 0
+  }
+}

@@ -1,0 +1,30 @@
+// Output topic `charging.sessions.v1`: one final record per session. See contracts/charging-sessions.md.
+syntax = "proto3";
+
+package charging.sessions.v1;
+
+enum CloseReason {
+  CLOSE_REASON_UNSPECIFIED = 0;
+  UNPLUG = 1;
+  INACTIVITY_TIMEOUT = 2;
+  REPLACED_BY_PLUG_IN = 3;
+}
+
+message ChargingSession {
+  // Lowercase hex SHA-256 of the opening PLUG_IN's event_id (UTF-8 text).
+  string output_id = 1;
+  string vin = 2;
+  // Session boundaries, epoch milliseconds UTC. end_ts is the UNPLUG time or the last accepted event.
+  int64 start_ts = 3;
+  int64 end_ts = 4;
+  // end_ts - start_ts
+  int64 duration_ms = 5;
+  // Sum of accepted energy increments.
+  int64 total_energy_wh = 6;
+  // Opening PLUG_IN coordinates rounded to 3 decimals, exact halves away from zero.
+  double start_lat = 7;
+  double start_lon = 8;
+  // From the opening PLUG_IN.
+  string charger_type = 9;
+  CloseReason close_reason = 10;
+}

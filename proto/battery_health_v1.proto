@@ -1,0 +1,21 @@
+// Output of the battery-health job: one final record per (VIN, 5-minute window).
+// Logical topic name `battery.health.v1`, fixed in the stage 2 review (SPEC.md, Resolved questions).
+// See contracts/battery-health.md.
+syntax = "proto3";
+
+package battery.health.v1;
+
+message BatteryWindow {
+  // Lowercase hex SHA-256 of "battery-health|<vin>|<window_start>" (UTF-8 text,
+  // window_start as a base-10 epoch-millisecond integer, no padding).
+  string output_id = 1;
+  string vin = 2;
+  // Window start, epoch milliseconds UTC; the window is [window_start, window_start + 5 min).
+  int64 window_start = 3;
+  double avg_soc_pct = 4;
+  double min_soh_pct = 5;
+  double max_cell_temp_c = 6;
+  // max_cell_temp_c strictly above 55.0
+  bool alert = 7;
+  int64 event_count = 8;
+}

@@ -34,7 +34,7 @@ COPY docker/spark-hello/ /app/
 COPY docker/check-proto-optional.sh /app/check-proto-optional.sh
 COPY proto/ /app/proto/
 
-RUN protoc -I proto --descriptor_set_out=/app/smoke.desc --include_imports proto/smoke.proto
+RUN protoc -I proto --descriptor_set_out=/app/telemetry.desc --include_imports proto/*.proto
 
 RUN sbt update compile
 

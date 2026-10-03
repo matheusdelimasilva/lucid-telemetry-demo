@@ -1,0 +1,32 @@
+{
+  "job": "charging-sessions",
+  "records": [
+    {
+      "output_id": "3c6e1e7deb0df9a7d137f55f4aeca68cbd93e19802e8868ba1b10d38fabbb557",
+      "vin": "TST00000000000013",
+      "start_ts": 1789984800000,
+      "end_ts": 1789986600000,
+      "duration_ms": 1800000,
+      "total_energy_wh": 150,
+      "start_lat": 37.4,
+      "start_lon": -122.1,
+      "charger_type": "dc_fast",
+      "close_reason": "INACTIVITY_TIMEOUT"
+    }
+  ],
+  "counters": {
+    "rejected": 0,
+    "late": 1,
+    "duplicate_events": 0,
+    "conflicting_duplicates": 0,
+    "orphan": 0,
+    "sessions_by_close_reason": {
+      "unplug": 0,
+      "inactivity_timeout": 1,
+      "replaced_by_plug_in": 0
+    }
+  },
+  "watermarks": {
+    "1": 1789986000000
+  }
+}

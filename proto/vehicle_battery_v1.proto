@@ -1,0 +1,18 @@
+// Input topic `vehicle.battery.v1`, keyed by VIN. See contracts/battery-health.md.
+syntax = "proto3";
+
+package vehicle.battery.v1;
+
+message BatteryReading {
+  // Globally unique; retransmissions reuse the same ID. Canonical lowercase UUID text.
+  string event_id = 1;
+  // Synthetic vehicle ID and the Kafka message key. 17 chars from [A-Z0-9].
+  string vin = 2;
+  // Event time: epoch milliseconds, UTC.
+  int64 ts = 3;
+  // Every reading is proto3 `optional` so "missing" differs from zero; all four are required.
+  optional double soc_pct = 4;
+  optional double soh_pct = 5;
+  optional double cell_temp_max_c = 6;
+  optional double pack_voltage_v = 7;
+}
