@@ -1,0 +1,147 @@
+{
+  "seed": 20260922,
+  "python_version": "3.12.11",
+  "protobuf_version": "6.31.1",
+  "choices": {
+    "vehicles": 200,
+    "simulated_day_utc": "2026-09-22",
+    "batch_interval_ms": 1800000,
+    "network_jitter_ms": {
+      "charging-sessions": {
+        "usual_max": 20000,
+        "straggler_max": 300000
+      },
+      "battery-health": {
+        "usual_max": 5000,
+        "straggler_max": 90000
+      }
+    },
+    "battery_reading_interval_ms": 60000
+  },
+  "fixtures": {
+    "charging-sessions": {
+      "path": "parity/replay/charging-sessions.jsonl",
+      "sha256": "4bdf29fa31a9582b49ca93e9008e202ee4dea9d51e55d123ecb7f77742b5db35",
+      "bytes": 1370727,
+      "event_lines": 7797,
+      "batches": 51,
+      "flush": {
+        "advance_watermark_to": 1790133706448,
+        "batch": 52
+      },
+      "vins": 200,
+      "rows_by_contract_class": {
+        "accepted": 7669,
+        "conflicting": 27,
+        "duplicate": 40,
+        "late": 35,
+        "rejected": 26
+      },
+      "injected_cases": {
+        "conflicting_copy_after_session_closed": 4,
+        "conflicting_copy_moves_watermark": 3,
+        "conflicting_duplicate": 15,
+        "conflicting_duplicate_plug_in": 5,
+        "identical_duplicate": 40,
+        "invalid:energy_negative": 1,
+        "invalid:energy_on_plug_in": 1,
+        "invalid:energy_on_start": 1,
+        "invalid:energy_on_unplug": 1,
+        "invalid:event_id_no_dashes": 1,
+        "invalid:event_id_uppercase": 1,
+        "invalid:event_unspecified": 1,
+        "invalid:plug_in_empty_charger_type": 1,
+        "invalid:plug_in_lat_above_90": 1,
+        "invalid:plug_in_lon_below_minus_180": 1,
+        "invalid:plug_in_missing_charger_type": 1,
+        "invalid:plug_in_missing_lat": 1,
+        "invalid:plug_in_missing_lon": 1,
+        "invalid:ts_at_2100_exclusive_bound": 1,
+        "invalid:ts_before_2020": 1,
+        "invalid:ts_zero": 1,
+        "invalid:vin_16_chars": 1,
+        "invalid:vin_lowercase": 1,
+        "invalid_then_valid_copy": 8,
+        "late_copy_of_seen_id": 15,
+        "late_copy_several_of_one_id": 3,
+        "late_exactly_at_watermark": 2,
+        "late_first_arrival": 3,
+        "late_fresh_event": 12,
+        "on_time_1ms_after_watermark": 2,
+        "on_time_copy_after_late_first_arrival": 3
+      },
+      "sessions_by_scenario": {
+        "crosses_midnight": 5,
+        "gap_exactly_30_min": 8,
+        "gap_over_30_min_then_orphans": 8,
+        "no_unplug_after_stop": 15,
+        "no_unplug_mid_progress": 15,
+        "normal": 292,
+        "plug_in_during_open_session": 19,
+        "stop_then_resume": 29
+      },
+      "plug_in_coordinates": {
+        "exact_half_3rd_decimal": 209,
+        "half": 200,
+        "negative": 301,
+        "short": 91,
+        "six": 109,
+        "special": 10
+      }
+    },
+    "battery-health": {
+      "path": "parity/replay/battery-health.jsonl",
+      "sha256": "601a69aa4f1c82d9428dff2f240ae08c2830239525fc3396e7394eadd52cac3d",
+      "bytes": 2898759,
+      "event_lines": 13396,
+      "batches": 39,
+      "flush": {
+        "advance_watermark_to": 1790108272421,
+        "batch": 40
+      },
+      "vins": 200,
+      "rows_by_contract_class": {
+        "accepted": 13283,
+        "conflicting": 18,
+        "duplicate": 40,
+        "late": 35,
+        "rejected": 20
+      },
+      "injected_cases": {
+        "conflicting_copy_moves_watermark": 3,
+        "conflicting_duplicate": 15,
+        "identical_duplicate": 40,
+        "invalid:event_id_uppercase": 1,
+        "invalid:soc_above_100": 1,
+        "invalid:soc_missing": 1,
+        "invalid:soc_negative": 1,
+        "invalid:soh_above_100": 1,
+        "invalid:soh_missing": 1,
+        "invalid:temp_above_120": 1,
+        "invalid:temp_below_minus_60": 1,
+        "invalid:ts_at_2100_exclusive_bound": 1,
+        "invalid:ts_before_2020": 1,
+        "invalid:vin_18_chars": 1,
+        "invalid:voltage_above_1000": 1,
+        "invalid:voltage_missing": 1,
+        "invalid:voltage_zero": 1,
+        "invalid_then_valid_copy": 6,
+        "late_copy_of_seen_id": 15,
+        "late_copy_several_of_one_id": 3,
+        "late_exactly_at_watermark": 2,
+        "late_first_arrival": 3,
+        "late_fresh_event": 12,
+        "on_time_1ms_after_watermark": 2,
+        "on_time_copy_after_late_first_arrival": 3
+      },
+      "readings": {
+        "hot_trip_readings": 1413,
+        "reading_at_window_end_minus_1ms": 8,
+        "reading_at_window_start": 8,
+        "temp_55.1": 8,
+        "temp_exactly_55.0": 8,
+        "valid_boundary_value": 7
+      }
+    }
+  }
+}

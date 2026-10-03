@@ -87,7 +87,7 @@ Two input topics, both keyed by VIN, both fake, with Protobuf messages defined i
 - Fake VINs with an obvious test prefix (for example `TST` + 14 characters). Coordinates have at most 6 decimals.
 **Edge cases the generator injects on purpose**
  
-- Every acceptance example, embedded in the larger run on its own VINs.
+- The same kinds of edge cases as the acceptance examples, generated natively. Examples stay standalone fixtures, because the watermark is shared across VINs.
 - Late events placed in later batches, after the watermark has moved, including late copies of IDs already seen.
 - Duplicates with the same payload, and conflicting duplicates, including one whose later `ts` moves the watermark.
 - Invalid messages, including one that arrives before a valid copy of the same `event_id`.

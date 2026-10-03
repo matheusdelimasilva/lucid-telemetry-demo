@@ -1,0 +1,32 @@
+# HUMAN REVIEW REQUIRED: privacy policy, changes need privacy-reviewer
+# approval; drafted in stage 4a, not yet reviewed.
+#
+# Per job, the logical topics it may write and the fields each record may
+# carry. `.shadow` topic names normalize to the logical topic. Field lists
+# match the output messages in proto/.
+review:
+  status: pending-human-review
+  reviewer: null
+jobs:
+  charging-sessions:
+    charging.sessions.v1:
+      - output_id
+      - vin
+      - start_ts
+      - end_ts
+      - duration_ms
+      - total_energy_wh
+      - start_lat
+      - start_lon
+      - charger_type
+      - close_reason
+  battery-health:
+    battery.health.v1:
+      - output_id
+      - vin
+      - window_start
+      - avg_soc_pct
+      - min_soh_pct
+      - max_cell_temp_c
+      - alert
+      - event_count

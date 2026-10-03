@@ -1,0 +1,12 @@
+{
+  "rejected" : 26,
+  "late" : 35,
+  "duplicate_events" : 40,
+  "conflicting_duplicates" : 27,
+  "orphan" : 78,
+  "sessions_by_close_reason" : {
+    "unplug" : 353,
+    "inactivity_timeout" : 38,
+    "replaced_by_plug_in" : 19
+  }
+}

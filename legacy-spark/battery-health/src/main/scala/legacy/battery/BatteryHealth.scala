@@ -19,6 +19,7 @@ object BatteryHealth extends Job {
   override val name = "battery-health"
   override val inputMessage = "vehicle.battery.v1.BatteryReading"
   override val outputMessage = "battery.health.v1.BatteryWindow"
+  override val outputTopic = "battery.health.v1"
   override val delayMs = 120000L
 
   private val minTs = 1577836800000L
@@ -223,7 +224,7 @@ object BatteryHealth extends Job {
     val defaults = Map(
       "--brokers" -> "localhost:9092",
       "--input-topic" -> "vehicle.battery.v1",
-      "--output-topic" -> "battery.health.v1",
+      "--output-topic" -> outputTopic,
       "--checkpoint" -> "/tmp/battery-health-checkpoint",
       "--descriptor" -> "/app/telemetry.desc",
       "--counters-out" -> "/tmp/battery-health.counters.json")

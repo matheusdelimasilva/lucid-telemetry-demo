@@ -120,3 +120,69 @@ jobs:
           name: rust-examples
           path: build/rust-examples
           if-no-files-found: warn
+
+  baseline-repro:
+    needs: [spark-hello, examples-check, proto-optional-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make baseline-repro
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-baseline
+          path: build/spark-baseline
+          if-no-files-found: error
+
+  # ---- verify stage --------------------------------------------------------
+  parity:
+    needs: [baseline-repro]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: spark-baseline
+          path: build/spark-baseline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tools/requirements.txt
+      - run: |
+          status=0
+          make parity JOB=charging-sessions RUN=build/spark-baseline || status=1
+          make parity JOB=battery-health RUN=build/spark-baseline || status=1
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-reports
+          path: build/spark-baseline/*.parity.md
+          if-no-files-found: warn
+
+  privacy-check:
+    needs: [baseline-repro]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: spark-baseline
+          path: build/spark-baseline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tools/requirements.txt
+      - run: |
+          status=0
+          make privacy-check JOB=charging-sessions RUN=build/spark-baseline || status=1
+          make privacy-check JOB=battery-health RUN=build/spark-baseline || status=1
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: privacy-reports
+          path: build/spark-baseline/*.privacy.md
+          if-no-files-found: warn

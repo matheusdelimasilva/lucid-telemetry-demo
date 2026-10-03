@@ -1,0 +1,46 @@
+# HUMAN REVIEW REQUIRED: privacy policy, changes need privacy-reviewer
+# approval; drafted in stage 4a, not yet reviewed.
+#
+# Field classification per logical topic: each field is `vin`, `location`
+# or `none`. Field names come from proto/ (the source of truth).
+review:
+  status: pending-human-review
+  reviewer: null
+topics:
+  vehicle.charging.v1:
+    event_id: none
+    vin: vin
+    ts: none
+    event: none
+    energy_wh: none
+    lat: location
+    lon: location
+    charger_type: none
+  vehicle.battery.v1:
+    event_id: none
+    vin: vin
+    ts: none
+    soc_pct: none
+    soh_pct: none
+    cell_temp_max_c: none
+    pack_voltage_v: none
+  charging.sessions.v1:
+    output_id: none
+    vin: vin
+    start_ts: none
+    end_ts: none
+    duration_ms: none
+    total_energy_wh: none
+    start_lat: location
+    start_lon: location
+    charger_type: none
+    close_reason: none
+  battery.health.v1:
+    output_id: none
+    vin: vin
+    window_start: none
+    avg_soc_pct: none
+    min_soh_pct: none
+    max_cell_temp_c: none
+    alert: none
+    event_count: none

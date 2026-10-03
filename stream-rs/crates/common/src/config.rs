@@ -31,6 +31,10 @@ impl Config {
             batch_max_events > 0,
             "BATCH_MAX_EVENTS must be greater than zero"
         );
+        anyhow::ensure!(
+            batch_poll_timeout_ms > 0,
+            "BATCH_POLL_TIMEOUT_MS must be greater than zero"
+        );
 
         Ok(Self {
             kafka_broker,
@@ -124,5 +128,14 @@ mod tests {
         .unwrap_err()
         .to_string()
         .contains("INPUT_PARTITION"));
+        assert!(config(&[
+            ("INPUT_TOPIC", "input"),
+            ("OUTPUT_TOPIC", "output"),
+            ("GROUP_ID", "group"),
+            ("BATCH_POLL_TIMEOUT_MS", "0"),
+        ])
+        .unwrap_err()
+        .to_string()
+        .contains("BATCH_POLL_TIMEOUT_MS"));
     }
 }
