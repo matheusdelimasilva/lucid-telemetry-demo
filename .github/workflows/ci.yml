@@ -170,6 +170,9 @@ jobs:
   # ---- verify stage --------------------------------------------------------
   # Auto-discovers stream-rs/jobs/*/Cargo.toml (ci/rust_parity.sh); stages 5-6
   # add a job directory and never edit CI. With no jobs it passes and says so.
+  # Per job: fixture + suite replay, suite-check/parity/privacy-check, the
+  # crate's tests (plain and --ignored, hence Redpanda via `make up`), and
+  # `docker build -f deploy/<job>.Dockerfile .` when that file exists.
   rust-parity:
     runs-on: ubuntu-latest
     steps:
@@ -184,7 +187,10 @@ jobs:
         with:
           workspaces: stream-rs
           shared-key: rust-parity
+      - run: make up
       - run: sh ci/rust_parity.sh
+      - if: always()
+        run: make down
       - if: always()
         uses: actions/upload-artifact@v4
         with:
