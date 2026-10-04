@@ -161,7 +161,13 @@ impl Processor for ChargingSessions {
                     self.orphan += 1;
                 }
             }
-            ChargingEventType::Progress | ChargingEventType::Stop => {
+            ChargingEventType::Progress => {
+                let open = session.as_mut().expect("checked above");
+                open.last_ts = event.ts;
+                open.total_energy_wh += event.energy_wh;
+                open.total_energy_wh += event.energy_wh;
+            }
+            ChargingEventType::Stop => {
                 let open = session.as_mut().expect("checked above");
                 open.last_ts = event.ts;
                 open.total_energy_wh += event.energy_wh;
