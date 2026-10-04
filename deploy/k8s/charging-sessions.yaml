@@ -1,0 +1,53 @@
+# Illustrative target runtime for the charging-sessions job; not applied anywhere
+# in this demo. One replica: the job consumes one partition of the input topic
+# and keeps its state in memory (see crates/common/README.md).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: charging-sessions
+data:
+  KAFKA_BROKER: redpanda:9092
+  INPUT_TOPIC: vehicle.charging.v1
+  # Shadow topic during the cutover (SPEC.md); the logical topic once the
+  # Spark job is retired.
+  OUTPUT_TOPIC: charging.sessions.v1.shadow
+  GROUP_ID: charging-sessions
+  INPUT_PARTITION: "0"
+  BATCH_MAX_EVENTS: "500"
+  BATCH_POLL_TIMEOUT_MS: "1000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: charging-sessions
+  labels:
+    app: charging-sessions
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: charging-sessions
+  template:
+    metadata:
+      labels:
+        app: charging-sessions
+    spec:
+      containers:
+        - name: charging-sessions
+          image: lucid-charging-sessions:dev
+          args: ["--kafka"]
+          envFrom:
+            - configMapRef:
+                name: charging-sessions
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false

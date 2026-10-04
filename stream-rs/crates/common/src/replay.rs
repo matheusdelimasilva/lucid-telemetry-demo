@@ -10,7 +10,7 @@ use crate::event::InputEvent;
 use crate::job::{JobSpec, RESERVED_VIN};
 use crate::processor::Processor;
 use crate::record::JsonRecord;
-use crate::runner::{Counters, DrainReport, Runner};
+use crate::runner::{DrainReport, Runner};
 
 const FLUSH_EXTENSION_MS: i64 = 3_600_000;
 
@@ -51,7 +51,7 @@ pub struct LastMarker {
 struct OutputsArtifact<'a> {
     job: &'static str,
     records: &'a [Value],
-    counters: &'a Counters,
+    counters: &'a Value,
 }
 
 pub struct ReplayRun<P: Processor> {
@@ -60,7 +60,8 @@ pub struct ReplayRun<P: Processor> {
     pub trace: Vec<TraceLine>,
     pub drain: DrainArtifact,
     pub outputs: Vec<Value>,
-    pub counters: Counters,
+    /// `Runner::counters_json`: the runner's four counters, then the job's own.
+    pub counters: Value,
     /// Harness self-check failures (the Spark harness's `failures`): empty means
     /// the replay's own `result.json` status is PASS.
     pub failures: Vec<String>,
@@ -233,7 +234,7 @@ where
         trace,
         drain,
         outputs,
-        counters: runner.counters().clone(),
+        counters: runner.counters_json(),
         failures,
         _processor: std::marker::PhantomData,
     })

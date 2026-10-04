@@ -14,7 +14,6 @@ use crate::job::JobSpec;
 use crate::processor::Processor;
 use crate::record::JsonRecord;
 use crate::replay::{sort_records, ReplayRun, TraceLine};
-use crate::runner::Counters;
 
 pub const ENGINE: &str = "rust";
 const TOOLCHAIN_TOML: &str = include_str!("../../../rust-toolchain.toml");
@@ -153,7 +152,7 @@ where
 pub fn compare_expected(
     expected: &Value,
     records: &[Value],
-    counters: &Counters,
+    counters: &Value,
     trace: &[TraceLine],
 ) -> Vec<String> {
     let mut failures = Vec::new();
@@ -193,11 +192,10 @@ pub fn compare_expected(
         failures.push("repeated output_id in records".to_string());
     }
 
-    let actual_counters = serde_json::to_value(counters).unwrap_or(Value::Null);
     if let Some(expected_counters) = expected.get("counters") {
-        if *expected_counters != actual_counters {
+        if expected_counters != counters {
             failures.push(format!(
-                "counters: expected {expected_counters} got {actual_counters}"
+                "counters: expected {expected_counters} got {counters}"
             ));
         }
     }
@@ -324,13 +322,17 @@ mod tests {
             "records": [{"output_id": "a", "x": 1.0, "s": "UNPLUG"}],
             "counters": {"rejected": 0, "late": 0, "duplicate_events": 0, "conflicting_duplicates": 0}
         });
+        let counters =
+            json!({"rejected": 0, "late": 0, "duplicate_events": 0, "conflicting_duplicates": 0});
         let ok = vec![json!({"output_id": "a", "x": 1.0 + 1e-12, "s": "UNPLUG"})];
-        assert!(compare_expected(&expected, &ok, &Counters::default(), &[]).is_empty());
+        assert!(compare_expected(&expected, &ok, &counters, &[]).is_empty());
         let bad = vec![
             json!({"output_id": "a", "x": 1.1, "s": "UNPLUG", "extra": 1}),
             json!({"output_id": "b"}),
         ];
-        let failures = compare_expected(&expected, &bad, &Counters::default(), &[]);
+        let failures = compare_expected(&expected, &bad, &counters, &[]);
         assert_eq!(failures.len(), 3, "{failures:?}");
+        let more = json!({"rejected": 0, "late": 0, "duplicate_events": 0, "conflicting_duplicates": 0, "orphan": 1});
+        assert_eq!(compare_expected(&expected, &ok, &more, &[]).len(), 1);
     }
 }

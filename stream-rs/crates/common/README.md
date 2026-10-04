@@ -6,7 +6,10 @@ Shared plumbing for the two Rust telemetry jobs:
 - `proto`: generated input and output Protobuf types.
 - `event` and `validate`: strict fixture decoding and input contract checks.
 - `processor` and `runner`: small event-time processing interface, per-VIN
-  buffering/deduplication, watermarks, counters, and drain inspection.
+  buffering/deduplication, watermarks, counters, and drain inspection. The
+  runner owns `rejected`, `late`, `duplicate_events` and
+  `conflicting_duplicates`; a job adds its own through `Processor::counters`
+  (default none), written after those four in the counters file.
 - `kafka`: single-partition batch consumption, output delivery, and offset
   commits.
 - `replay`: fixture schedule execution and `trace.jsonl`, `drain.json`, and

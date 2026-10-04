@@ -21,7 +21,10 @@ and nothing else; `crates/common` does the rest.
   `src/main.rs` is one line: `common::cli::main::<BatteryHealth>(BATTERY, encode)`.
 - **What `common` provides** (job-agnostic, nothing to copy):
   `runner` (validation, lateness, per-VIN dedup, watermark, `(ts, arrival_seq)`
-  release order, counters, drain inspection), `replay` (fixture parsing, the
+  release order, the four common counters, drain inspection; a job with more
+  counters, like `charging-sessions`' `orphan` and `sessions_by_close_reason`,
+  tallies them itself and returns them from `Processor::counters`), `replay`
+  (fixture parsing, the
   standard flush, trace lines, `drain.json` in the Spark shape), `artifacts`
   (fixture-mode `<job>.*` files and suite-mode `outputs.json`/`result.json`,
   records sorted by `output_id`, `run.json` with `engine: "rust"`), `cli`
@@ -53,6 +56,9 @@ and nothing else; `crates/common` does the rest.
   `build/rust-parity/battery-health.parity.md`, `build/rust-parity/battery-health.privacy.md`.
 - **Deploy:** `deploy/battery-health.Dockerfile` (`make battery-image`) and
   `deploy/k8s/battery-health.yaml` (ConfigMap + one-replica Deployment).
+  `charging-sessions` (stage 6) follows the same layout under
+  `stream-rs/jobs/charging-sessions/`, `deploy/charging-sessions.Dockerfile`
+  (`make charging-image`) and `deploy/k8s/charging-sessions.yaml`.
 
 ## Checklist
 
