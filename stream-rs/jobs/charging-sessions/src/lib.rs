@@ -56,7 +56,9 @@ pub fn output_id(plug_in_event_id: &str) -> String {
 /// Three decimals, exact halves away from zero, on the shortest decimal form of
 /// the double (`SPEC.md`: `Decimal(repr(x)).quantize(0.001, ROUND_HALF_UP)`;
 /// Scala's `BigDecimal(x).setScale(3, HALF_UP)`). Float arithmetic would see
-/// `-33.8675` as `-33.86749999...` and round it the wrong way.
+/// `-33.8675` as `-33.86749999...` and round it the wrong way. `Decimal::from_str`
+/// (unlike `from_str_exact`) rounds digits past the 28th decimal place, so the
+/// shortest form of a tiny double like `1e-30` parses and rounds to `0.0`.
 pub fn round_coordinate(value: f64) -> f64 {
     let shortest = format!("{value}");
     let exact: Decimal = shortest
@@ -284,6 +286,48 @@ mod tests {
         assert_eq!(round_coordinate(-23.0), -23.0);
         assert_eq!(round_coordinate(2.0005), 2.001);
         assert_eq!(round_coordinate(1.0004999), 1.0);
+    }
+
+    #[test]
+    fn coordinates_below_half_a_thousandth_round_to_positive_zero() {
+        for value in [
+            1e-30,
+            -1e-30,
+            4e-4,
+            -4e-4,
+            0.00049999999,
+            -0.00049999999,
+            -0.0,
+        ] {
+            let rounded = round_coordinate(value);
+            assert_eq!(rounded, 0.0, "{value}");
+            assert!(
+                rounded.is_sign_positive(),
+                "{value} must round to +0.0, not -0.0"
+            );
+        }
+        assert_eq!(round_coordinate(f64::MIN_POSITIVE), 0.0);
+        assert_eq!(round_coordinate(5e-324), 0.0);
+    }
+
+    #[test]
+    fn plug_in_with_tiny_coordinates_opens_a_session_at_zero() {
+        let mut job = ChargingSessions::default();
+        let mut session = OpenSession::default();
+        let mut plug_in = event(1, T0, ChargingEventType::PlugIn, 0);
+        plug_in.lat = Some(1e-30);
+        plug_in.lon = Some(-1e-30);
+        assert!(job.on_event(&plug_in, &mut session).is_empty());
+        let out = job.on_event(
+            &event(2, T0 + 60_000, ChargingEventType::Unplug, 0),
+            &mut session,
+        );
+        assert_eq!(out.len(), 1);
+        let json = out[0].to_json();
+        assert_eq!(json["start_lat"], json!(0.0));
+        assert_eq!(json["start_lon"], json!(0.0));
+        assert_eq!(json["start_lat"].to_string(), "0.0");
+        assert_eq!(json["start_lon"].to_string(), "0.0");
     }
 
     #[test]
