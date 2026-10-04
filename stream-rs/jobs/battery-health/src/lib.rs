@@ -47,23 +47,27 @@ pub fn output_id(vin: &str, window_start: i64) -> String {
     sha256_hex(format!("battery-health|{vin}|{window_start}").as_bytes())
 }
 
+/// The optional fields are present on every reading the runner hands us
+/// (`common::validate::battery`); a missing one is a validation bug, not a 0.
+fn present(value: Option<f64>) -> f64 {
+    value.expect("validated by the runner")
+}
+
 impl Window {
     fn first(reading: &BatteryReading) -> Self {
         Self {
-            soc_sum: reading.soc_pct.unwrap_or_default(),
+            soc_sum: present(reading.soc_pct),
             count: 1,
-            min_soh: reading.soh_pct.unwrap_or_default(),
-            max_temp: reading.cell_temp_max_c.unwrap_or_default(),
+            min_soh: present(reading.soh_pct),
+            max_temp: present(reading.cell_temp_max_c),
         }
     }
 
     fn add(&mut self, reading: &BatteryReading) {
-        self.soc_sum += reading.soc_pct.unwrap_or_default();
+        self.soc_sum += present(reading.soc_pct);
         self.count += 1;
-        self.min_soh = self.min_soh.min(reading.soh_pct.unwrap_or_default());
-        self.max_temp = self
-            .max_temp
-            .max(reading.cell_temp_max_c.unwrap_or_default());
+        self.min_soh = self.min_soh.min(present(reading.soh_pct));
+        self.max_temp = self.max_temp.max(present(reading.cell_temp_max_c));
     }
 
     fn close(self, vin: &str, window_start: i64) -> BatteryWindowRecord {
