@@ -13,11 +13,15 @@ pub mod proto {
     }
 }
 
+pub mod artifacts;
+pub mod cli;
 pub mod config;
 pub mod event;
+pub mod hash;
 pub mod job;
 pub mod kafka;
 pub mod processor;
+pub mod record;
 pub mod replay;
 pub mod runner;
 pub mod validate;

@@ -1,8 +1,60 @@
 # Porting a job to Rust
 
 The checklist from SPEC.md ("Rust skeleton and reference job"), with the
-mechanics the CI relies on. Seeded in stage 4b; stage 5 fills in what the
-`battery-health` reference port teaches.
+mechanics the CI relies on. Seeded in stage 4b; the "pattern" section below is
+what the `battery-health` reference port (stage 5) teaches.
+
+## The pattern: `battery-health`
+
+A job is one crate under `stream-rs/jobs/<job>/` that writes a `Processor`
+and nothing else; `crates/common` does the rest.
+
+- **Where the Processor lives:** `stream-rs/jobs/battery-health/src/lib.rs`
+  (~100 lines). `BatteryHealth` implements `common::processor::Processor`
+  with `State = BTreeMap<window_start, Window>` per VIN: `on_event` folds a
+  reading into its epoch-aligned 5-minute window, `on_watermark` closes every
+  window whose end is `<=` the watermark (in `window_start` order), `is_open`
+  is "any window still open". The output type is a newtype over the prost
+  `BatteryWindow` that implements `common::record::JsonRecord` (the JSON the
+  records/trace files use; each job owns its encoding, e.g. enum fields as
+  names) and `encode` (protobuf bytes keyed by VIN for Kafka).
+  `src/main.rs` is one line: `common::cli::main::<BatteryHealth>(BATTERY, encode)`.
+- **What `common` provides** (job-agnostic, nothing to copy):
+  `runner` (validation, lateness, per-VIN dedup, watermark, `(ts, arrival_seq)`
+  release order, counters, drain inspection), `replay` (fixture parsing, the
+  standard flush, trace lines, `drain.json` in the Spark shape), `artifacts`
+  (fixture-mode `<job>.*` files and suite-mode `outputs.json`/`result.json`,
+  records sorted by `output_id`, `run.json` with `engine: "rust"`), `cli`
+  (`--out`/`--fixture`/suite dirs/`--kafka` parsing and the two replay
+  drivers), `kafka` (single-partition consume, produce, commit), `hash`
+  (`sha256_hex` for `output_id` and `fixture_sha256`), and `job::JobSpec`
+  (name, topics, watermark delay, validator, flush control event).
+- **Tests the job crate carries** (`stream-rs/jobs/battery-health/tests/`):
+  `determinism.rs` (two fixture runs through the CLI are byte-identical),
+  `golden_trace.rs` (batch-by-batch against `parity/golden/<job>.trace.jsonl`:
+  watermarks, late count, records emitted; extra evidence, `tools/` decides),
+  `kafka_it.rs` (`#[ignore]`d Redpanda round trip: protobuf out, keyed by VIN).
+- **The three checks locally** (what `ci/rust_parity.sh` runs; `make up`
+  first for the ignored Kafka test, Docker for the image build):
+
+  ```
+  make rust-parity                     # everything below for every job
+  # or step by step, from the repo root:
+  cargo run --manifest-path stream-rs/Cargo.toml --release -p battery-health -- \
+      --out build/rust-parity --fixture battery-health=parity/replay/battery-health.jsonl
+  cargo run --manifest-path stream-rs/Cargo.toml --release -p battery-health -- \
+      --out build/rust-parity/examples/battery-health parity/examples parity/probes
+  python3 tools/suite_check.py --job battery-health --run build/rust-parity/examples/battery-health
+  python3 tools/parity.py --job battery-health --run build/rust-parity
+  python3 tools/privacy_check.py --job battery-health --run build/rust-parity
+  ```
+
+  Reports: `build/rust-parity/examples/battery-health/battery-health.suite.md`,
+  `build/rust-parity/battery-health.parity.md`, `build/rust-parity/battery-health.privacy.md`.
+- **Deploy:** `deploy/battery-health.Dockerfile` (`make battery-image`) and
+  `deploy/k8s/battery-health.yaml` (ConfigMap + one-replica Deployment).
+
+## Checklist
 
 1. Read the Scala job (`legacy-spark/<job>/`) and list every rule. Compare the
    list with `contracts/<job>.md`; ask about any difference before coding.
