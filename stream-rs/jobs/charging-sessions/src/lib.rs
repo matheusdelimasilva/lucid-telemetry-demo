@@ -12,7 +12,6 @@ use common::proto::charging::{ChargingEvent, ChargingEventType};
 use common::proto::charging_output::{ChargingSession, CloseReason};
 use common::record::JsonRecord;
 use prost::Message;
-use rust_decimal::{Decimal, RoundingStrategy};
 use serde_json::{json, Value};
 
 /// A gap strictly longer than this between accepted session events, or between
@@ -60,15 +59,7 @@ pub fn output_id(plug_in_event_id: &str) -> String {
 /// (unlike `from_str_exact`) rounds digits past the 28th decimal place, so the
 /// shortest form of a tiny double like `1e-30` parses and rounds to `0.0`.
 pub fn round_coordinate(value: f64) -> f64 {
-    let shortest = format!("{value}");
-    let exact: Decimal = shortest
-        .parse()
-        .unwrap_or_else(|error| panic!("{shortest} is not a finite decimal: {error}"));
-    exact
-        .round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero)
-        .to_string()
-        .parse()
-        .expect("a 3-decimal number parses as f64")
+    value
 }
 
 /// The runner only hands us contract-valid events (`common::validate::charging_event`):
