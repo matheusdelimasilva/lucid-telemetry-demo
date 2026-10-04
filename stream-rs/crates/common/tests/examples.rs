@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use common::event::InputEvent;
 use common::job::{BATTERY, CHARGING, RESERVED_VIN};
 use common::replay::{run_fixture, ReplayRun};
-use common::runner::Counters;
 use serde_json::Value;
 use support::{case_dirs, json_lines, parse_expected, repo_root, Recorder, SeenEvent};
 
@@ -110,23 +109,21 @@ where
     Ok(failures)
 }
 
-fn check_counters(actual: &Counters, expected: &Value, failures: &mut Vec<String>) {
+/// The runner's four counters only: the `Recorder` is not the job, so the
+/// job-specific ones (`orphan`, `sessions_by_close_reason`) are not expected.
+fn check_counters(actual: &Value, expected: &Value, failures: &mut Vec<String>) {
     for key in [
         "rejected",
         "late",
         "duplicate_events",
         "conflicting_duplicates",
     ] {
-        let actual_value = match key {
-            "rejected" => actual.rejected,
-            "late" => actual.late,
-            "duplicate_events" => actual.duplicate_events,
-            _ => actual.conflicting_duplicates,
-        };
-        if expected.get(key).and_then(Value::as_u64) != Some(actual_value) {
+        let actual_value = actual.get(key).and_then(Value::as_u64);
+        if expected.get(key).and_then(Value::as_u64) != actual_value {
             failures.push(format!(
-                "counter {key}: expected {}, got {actual_value}",
-                expected.get(key).unwrap_or(&Value::Null)
+                "counter {key}: expected {}, got {}",
+                expected.get(key).unwrap_or(&Value::Null),
+                actual.get(key).unwrap_or(&Value::Null)
             ));
         }
     }

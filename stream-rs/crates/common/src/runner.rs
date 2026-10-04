@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::event::InputEvent;
 use crate::job::{JobSpec, RESERVED_VIN};
@@ -182,6 +183,24 @@ impl<P: Processor> Runner<P> {
 
     pub fn counters(&self) -> &Counters {
         &self.counters
+    }
+
+    /// The runner's counters followed by the processor's (`Processor::counters`),
+    /// as one JSON object in that key order: the contract's counters file.
+    pub fn counters_json(&self) -> Value {
+        let mut counters = serde_json::to_value(&self.counters)
+            .expect("Counters serialize")
+            .as_object()
+            .cloned()
+            .expect("Counters serialize as an object");
+        for (key, value) in self.processor.counters() {
+            counters.insert(key.to_owned(), value);
+        }
+        Value::Object(counters)
+    }
+
+    pub fn processor(&self) -> &P {
+        &self.processor
     }
 
     pub fn watermark(&self) -> Option<i64> {

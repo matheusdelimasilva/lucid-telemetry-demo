@@ -1,4 +1,4 @@
-.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures rust-replay rust-spark-trace rust-tests rust-parity battery-image oracle-guard
+.PHONY: up down smoke-rust smoke-py spark-image spark-hello proto-py proto-check check-examples spark-examples spark-baseline baseline-repro baseline parity privacy-check fixtures rust-replay rust-spark-trace rust-tests rust-parity battery-image charging-image oracle-guard
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -124,6 +124,9 @@ rust-parity:
 
 battery-image:
 	docker build -f deploy/battery-health.Dockerfile -t lucid-battery-health:dev .
+
+charging-image:
+	docker build -f deploy/charging-sessions.Dockerfile -t lucid-charging-sessions:dev .
 
 # What the oracle-guard CI job runs, against the local main. CI runs the target
 # branch's copy of the script, not the checkout's.

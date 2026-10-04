@@ -1,3 +1,5 @@
+use serde_json::Value;
+
 use crate::event::InputEvent;
 
 pub trait Processor {
@@ -13,4 +15,12 @@ pub trait Processor {
         state: &mut Self::State,
     ) -> Vec<Self::Output>;
     fn is_open(&self, state: &Self::State) -> bool;
+
+    /// The job's own counters, written after the runner's four (`rejected`,
+    /// `late`, `duplicate_events`, `conflicting_duplicates`) in `counters.json`
+    /// and `outputs.json`, in this order. The processor instance lives for the
+    /// whole run, so it can tally them itself. Default: none.
+    fn counters(&self) -> Vec<(&'static str, Value)> {
+        Vec::new()
+    }
 }
